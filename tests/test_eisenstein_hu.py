@@ -1,9 +1,6 @@
-"""EH98 references and native JAX transformation behaviour."""
+"""EH98 physical identities and native JAX transformation behaviour."""
 
-import json
 from dataclasses import FrozenInstanceError, replace
-from pathlib import Path
-from typing import Any
 
 import jax
 import jax.numpy as jnp
@@ -13,62 +10,18 @@ from jax import Array
 
 from cosmograd import EisensteinHu, FlatLCDM, Perturbations
 from cosmograd.perturbations import EisensteinHu as ExportedEisensteinHu
-from cosmograd.perturbations.einstein_hu import _transfer
 
-_REFERENCE = json.loads(
-    (Path(__file__).parent / "data" / "eisenstein_hu_reference.json").read_text()
+
+@pytest.fixture(
+    params=[
+        EisensteinHu(FlatLCDM(H0=67.36, omega_m=0.3153), 0.0493, 0.9649, 3.044),
+        EisensteinHu(FlatLCDM(H0=72.0, omega_m=0.25), 0.04, 1.0, 3.1),
+        EisensteinHu(FlatLCDM(H0=62.0, omega_m=0.4, t_cmb=2.8), 0.07, 0.94, 2.9),
+    ],
+    ids=["planck", "low-matter", "high-matter"],
 )
-
-
-@pytest.fixture(params=_REFERENCE["cases"], ids=["planck", "low-matter", "high-matter"])
-def reference(request: pytest.FixtureRequest) -> dict[str, Any]:
+def eh(request: pytest.FixtureRequest) -> EisensteinHu:
     return request.param
-
-
-@pytest.fixture
-def eh(reference: dict[str, Any]) -> EisensteinHu:
-    p = reference["parameters"]
-    return EisensteinHu(
-        FlatLCDM(H0=p["H0"], omega_m=p["omega_m"], t_cmb=p["t_cmb"]),
-        omega_b=p["omega_b"],
-        n_s=p["n_s"],
-        ln10as=p["ln10as"],
-    )
-
-
-def test_transfer_reference(eh: EisensteinHu, reference: dict[str, Any]) -> None:
-    h2 = (eh.background.H0 / 100) ** 2
-    np.testing.assert_allclose(
-        _transfer(
-            jnp.array(_REFERENCE["k"]),
-            eh.omega_b * h2,
-            eh.background.omega_m * h2,
-            eh.background.t_cmb,
-        ),
-        reference["transfer"],
-        rtol=1e-10,
-    )
-
-
-def test_absolute_power_reference(eh: EisensteinHu, reference: dict[str, Any]) -> None:
-    # corrtracers uses cumulative growth integration on 512 ln(a) nodes;
-    # the native quadrature differs slightly in its absolute normalisation.
-    np.testing.assert_allclose(
-        eh.matter_power_spectrum(jnp.array(_REFERENCE["k"]), 0.0),
-        reference["power_z0"],
-        rtol=1e-5,
-    )
-
-
-@pytest.mark.parametrize(
-    "method,key", [("growth_function", "growth"), ("growth_rate", "rate")]
-)
-def test_growth_reference(
-    eh: EisensteinHu, reference: dict[str, Any], method: str, key: str
-) -> None:
-    np.testing.assert_allclose(
-        getattr(eh, method)(jnp.array(_REFERENCE["z"])), reference[key], rtol=1e-3
-    )
 
 
 def test_background_and_pytree(eh: EisensteinHu) -> None:

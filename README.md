@@ -96,7 +96,7 @@ The `EisensteinHu` calculations follow:
 - [Planck Collaboration (2020), *Planck 2018 results. VI. Cosmological parameters*](https://arxiv.org/abs/1807.06209),
   section 2.1: the pivot k = 0.05/Mpc and ln(10¹⁰ A_s) parameter convention.
 
-The transfer implementation and frozen test values were adapted from
+The transfer implementation was adapted from
 [corrtracers revision 661c367](https://github.com/binado/corrtracers/tree/661c367c64b3f329dc431d303f9a62f2e80b0868).
 Equation references also appear beside the corresponding calculations in
 `src/cosmograd/perturbations/einstein_hu.py`.

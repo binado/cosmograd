@@ -7,15 +7,23 @@ import pytest
 
 from cosmograd import FlatLCDM, Perturbations
 from cosmograd.background import Background
+from cosmograd.perturbations.baccoemu import BaccoEmu
 from cosmograd.perturbations.cosmopower import CosmoPower
 
 jax.config.update("jax_enable_x64", True)
 
 
+def _installed(module: str) -> bool:
+    try:
+        return importlib.util.find_spec(module) is not None
+    except ModuleNotFoundError:  # the parent package of a dotted name is missing
+        return False
+
+
 def _requires(module: str) -> pytest.MarkDecorator:
     """Skip a backend whose optional dependency is not installed."""
     return pytest.mark.skipif(
-        importlib.util.find_spec(module) is None,
+        not _installed(module),
         reason=f"optional dependency {module!r} is not installed",
     )
 
@@ -32,6 +40,13 @@ def background(request: pytest.FixtureRequest) -> Background:
             CosmoPower(h=0.67, omega_m=0.31, omega_b=0.049, n_s=0.965, ln10as=3.044),
             id="CosmoPower",
             marks=_requires("cosmopower_jax"),
+        ),
+        pytest.param(
+            BaccoEmu(
+                h=0.67, omega_cold=0.31, omega_baryon=0.049, ns=0.965, sigma8_cold=0.81
+            ),
+            id="BaccoEmu",
+            marks=_requires("baccoemu.matter_powerspectrum"),
         ),
     ]
 )

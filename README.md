@@ -12,7 +12,7 @@ optional extras.
 ```console
 uv add cosmograd                       # core: protocols + native backgrounds
 uv add 'cosmograd[cosmopower]'         # CosmoPower-JAX backend (planned)
-uv add 'cosmograd[bacco]'              # bacco emulator backend (planned)
+uv add 'cosmograd[bacco]'              # bacco emulator backend
 ```
 
 ## Usage
@@ -27,6 +27,19 @@ z = jnp.linspace(0.1, 2.0, 20)
 
 cosmo.luminosity_distance(z)  # Mpc
 jax.jacfwd(lambda c: c.luminosity_distance(z))(cosmo)  # FlatLCDM-shaped Jacobian
+```
+
+With the `bacco` extra, `BaccoEmu` emulates linear and nonlinear matter power
+spectra (weights are downloaded on first use):
+
+```python
+from cosmograd.perturbations.baccoemu import BaccoEmu
+
+pert = BaccoEmu(h=0.67, omega_cold=0.315, omega_baryon=0.05, ns=0.96, sigma8_cold=0.8)
+k = jnp.geomspace(1e-3, 3.0, 100)  # 1/Mpc
+z = jnp.linspace(0.0, 1.5, 16)
+pert.check_bounds(k, z)  # eager check of the training ranges
+pert.matter_power_spectrum(k, z[:, None], nonlinear=True)  # Mpc^3, shape (16, 100)
 ```
 
 Units: distances in Mpc, wavenumbers in 1/Mpc, H in 1/Mpc (c = 1), power spectra

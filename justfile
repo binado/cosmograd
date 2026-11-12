@@ -31,4 +31,3 @@ build:
 
 check: lint fmt-check typecheck test build
     uv lock --check
-

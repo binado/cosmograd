@@ -17,3 +17,11 @@ def test_cosmopower_module_imports_lazily() -> None:
         "assert 'cosmopower_jax' not in sys.modules"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_baccoemu_backend_imports_baccoemu_lazily() -> None:
+    code = (
+        "import sys; from cosmograd.perturbations.baccoemu import BaccoEmu; "
+        "assert 'baccoemu' not in sys.modules"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)

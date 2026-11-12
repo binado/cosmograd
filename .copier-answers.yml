@@ -1,0 +1,11 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY.
+_commit: d024844
+_src_path: gh:binado/pyquick
+author_email: bernardopveronese@gmail.com
+author_name: binado
+description: Differentiable cosmology in JAX behind a small protocol contract.
+github_username: binado
+project_name: cosmograd
+project_type: library
+publish_to_pypi: false
+python_min: '3.12'

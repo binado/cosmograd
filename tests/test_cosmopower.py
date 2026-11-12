@@ -1,0 +1,58 @@
+"""Physics checks specific to the CosmoPower backend."""
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+import pytest
+
+from cosmograd import FlatLCDM
+from cosmograd.perturbations.cosmopower import K_PIVOT, CosmoPower
+
+pytest.importorskip("cosmopower_jax")
+
+
+@pytest.fixture
+def cosmo() -> CosmoPower:
+    return CosmoPower(h=0.674, omega_m=0.315, omega_b=0.0493, n_s=0.965, ln10as=3.044)
+
+
+def test_background_shares_parameters(cosmo: CosmoPower) -> None:
+    assert cosmo.background == FlatLCDM(h=cosmo.h, omega_m=cosmo.omega_m)
+
+
+def test_sigma8_planck(cosmo: CosmoPower) -> None:
+    """Planck-like parameters with massless neutrinos give sigma_8 near 0.82."""
+    k = jnp.geomspace(1e-4, 5.0, 4000)
+    kr = k * 8 / cosmo.h
+    window = 3 * (jnp.sin(kr) - kr * jnp.cos(kr)) / kr**3
+    integrand = k**3 * cosmo.matter_power_spectrum(k, 0.0) * window**2
+    sigma8 = jnp.sqrt(jnp.trapezoid(integrand, jnp.log(k)) / (2 * np.pi**2))
+    np.testing.assert_allclose(sigma8, 0.82, rtol=0.02)
+
+
+def test_primordial_amplitude_at_pivot(cosmo: CosmoPower) -> None:
+    np.testing.assert_allclose(
+        cosmo.primordial_power_spectrum(K_PIVOT), 1e-10 * np.exp(cosmo.ln10as)
+    )
+
+
+@pytest.mark.parametrize("k", [1e-3, 1e-2, 1e-1, 1.0])
+def test_power_spectrum_gradient_in_amplitude(cosmo: CosmoPower, k: float) -> None:
+    """The linear spectrum is proportional to A_s, so d ln P / d ln(1e10 A_s) = 1."""
+    grad = jax.grad(lambda c: jnp.log(c.matter_power_spectrum(k, 1.0)))(cosmo)
+    np.testing.assert_allclose(grad.ln10as, 1.0, rtol=1e-2)
+
+
+@pytest.mark.parametrize("k", [1e-2, 1e-1, 1.0])
+def test_growth_is_scale_independent(cosmo: CosmoPower, k: float) -> None:
+    z = jnp.linspace(0.0, 4.0, 9)
+    np.testing.assert_allclose(
+        cosmo.growth_function(z, k=k), cosmo.growth_function(z), rtol=2e-3
+    )
+
+
+def test_growth_rate_approximation(cosmo: CosmoPower) -> None:
+    """Linder (2005): f is close to Omega_m(z)^0.55 in LambdaCDM."""
+    z = jnp.linspace(0.0, 4.0, 9)
+    omega_m_z = cosmo.background.matter_density_parameter(z)
+    np.testing.assert_allclose(cosmo.growth_rate(z), omega_m_z**0.55, rtol=1e-2)

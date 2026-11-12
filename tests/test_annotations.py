@@ -68,7 +68,7 @@ def test_import_hook_rejects_complex(method: str, value: ArrayLike) -> None:
 
 def test_checked_return_shape() -> None:
     @jaxtyped(typechecker=typecheck)
-    def wrong_shape(z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:  # noqa: F722
+    def wrong_shape(z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
         return jnp.zeros((2, 3))
 
     with pytest.raises(TypeCheckError):
@@ -77,9 +77,9 @@ def test_checked_return_shape() -> None:
 
 @jaxtyped(typechecker=typecheck)
 def broadcast_signature(
-    k: Real[ArrayLike, "*#shape"],  # noqa: F722
-    z: Real[ArrayLike, "*#shape"],  # noqa: F722
-) -> Float[Array, "*shape"]:  # noqa: F722
+    k: Real[ArrayLike, "*#shape"],
+    z: Real[ArrayLike, "*#shape"],
+) -> Float[Array, "*shape"]:
     """Exercise the perturbations contract without implementing a backend."""
     return jnp.asarray(k, dtype=float) + jnp.asarray(z)
 

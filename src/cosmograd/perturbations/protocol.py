@@ -48,10 +48,10 @@ class Perturbations(Protocol):
 
     def growth_function(
         self,
-        z: Real[ArrayLike, "*#shape"],  # noqa: F722
+        z: Real[ArrayLike, "*#shape"],
         *,
-        k: Real[ArrayLike, "*#shape"] | None = None,  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        k: Real[ArrayLike, "*#shape"] | None = None,
+    ) -> Float[Array, "*shape"]:
         """Linear growth function :math:`D`, normalised to 1 at :math:`z = 0`.
 
         With scale dependence it is defined through the linear spectrum,
@@ -79,10 +79,10 @@ class Perturbations(Protocol):
 
     def growth_rate(
         self,
-        z: Real[ArrayLike, "*#shape"],  # noqa: F722
+        z: Real[ArrayLike, "*#shape"],
         *,
-        k: Real[ArrayLike, "*#shape"] | None = None,  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        k: Real[ArrayLike, "*#shape"] | None = None,
+    ) -> Float[Array, "*shape"]:
         """Linear growth rate :math:`f = \\mathrm{d}\\ln D / \\mathrm{d}\\ln a`.
 
         Parameters
@@ -102,11 +102,11 @@ class Perturbations(Protocol):
 
     def matter_power_spectrum(
         self,
-        k: Real[ArrayLike, "*#shape"],  # noqa: F722
-        z: Real[ArrayLike, "*#shape"],  # noqa: F722
+        k: Real[ArrayLike, "*#shape"],
+        z: Real[ArrayLike, "*#shape"],
         *,
         nonlinear: bool = False,
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+    ) -> Float[Array, "*shape"]:
         """Matter power spectrum :math:`P(k, z)`.
 
         Parameters
@@ -128,8 +128,8 @@ class Perturbations(Protocol):
 
     def primordial_power_spectrum(
         self,
-        k: Real[ArrayLike, "*shape"],  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        k: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Dimensionless primordial curvature power spectrum.
 
         Parameters

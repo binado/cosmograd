@@ -86,7 +86,7 @@ class FlatLCDM(Background):
     n_grid: int = 2048
 
     @property
-    def omega_r(self) -> Float[Array, ""]:  # noqa: F722
+    def omega_r(self) -> Float[Array, ""]:
         """Radiation density parameter today, :math:`\\Omega_r`.
 
         Returns
@@ -99,7 +99,7 @@ class FlatLCDM(Background):
         return omega_gamma * (1 + NEUTRINO_TO_PHOTON_PER_SPECIES * self.n_eff)
 
     @property
-    def omega_de(self) -> Float[Array, ""]:  # noqa: F722
+    def omega_de(self) -> Float[Array, ""]:
         """Dark energy density parameter today, :math:`\\Omega_\\Lambda`.
 
         Returns
@@ -109,7 +109,7 @@ class FlatLCDM(Background):
         """
         return 1 - jnp.asarray(self.omega_m) - self.omega_r
 
-    def efunc(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:  # noqa: F722
+    def efunc(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
         """Dimensionless expansion rate :math:`E(z) = H(z) / H_0`.
 
         Parameters
@@ -126,7 +126,7 @@ class FlatLCDM(Background):
         return jnp.sqrt(self.omega_m * zp1**3 + self.omega_r * zp1**4 + self.omega_de)
 
     @property
-    def hubble_constant(self) -> Float[Array, ""]:  # noqa: F722
+    def hubble_constant(self) -> Float[Array, ""]:
         """Hubble constant :math:`H_0`.
 
         Returns
@@ -136,7 +136,7 @@ class FlatLCDM(Background):
         """
         return 100 * jnp.asarray(self.h) / C_KM_S
 
-    def hubble_parameter(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:  # noqa: F722
+    def hubble_parameter(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
         """Hubble rate :math:`H(z) = H_0 E(z)`.
 
         Parameters
@@ -153,8 +153,8 @@ class FlatLCDM(Background):
 
     def matter_density_parameter(
         self,
-        z: Real[ArrayLike, "*shape"],  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        z: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Matter density parameter :math:`\\Omega_m(z)`.
 
         Parameters
@@ -170,7 +170,7 @@ class FlatLCDM(Background):
         zp1 = 1 + jnp.asarray(z)
         return self.omega_m * zp1**3 / self.efunc(z) ** 2
 
-    def _distance_table(self) -> tuple[Float[Array, "grid"], Float[Array, "grid"]]:  # noqa: F821
+    def _distance_table(self) -> tuple[Float[Array, " grid"], Float[Array, " grid"]]:
         """Tabulate :math:`\\chi` on a grid uniform in :math:`\\ln(1 + z)`.
 
         Returns
@@ -191,7 +191,7 @@ class FlatLCDM(Background):
 
     def _distance_ratio_table(
         self,
-    ) -> tuple[Float[Array, "grid"], Float[Array, "grid"]]:  # noqa: F821
+    ) -> tuple[Float[Array, " grid"], Float[Array, " grid"]]:
         """Tabulate the ratio :math:`\\chi / \\ln(1 + z)`.
 
         The ratio is smooth and tends to :math:`1 / H_0` as :math:`z \\to 0`, so
@@ -211,7 +211,7 @@ class FlatLCDM(Background):
         ratio = jnp.concatenate([(1 / self.hubble_constant)[None], chi[1:] / x[1:]])
         return x, ratio
 
-    def comoving_distance(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:  # noqa: F722
+    def comoving_distance(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
         """Line-of-sight comoving distance :math:`\\chi(z)`.
 
         Parameters
@@ -231,8 +231,8 @@ class FlatLCDM(Background):
 
     def redshift_at_comoving_distance(
         self,
-        chi: Real[ArrayLike, "*shape"],  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        chi: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Redshift at a given comoving distance.
 
         Parameters

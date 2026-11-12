@@ -46,7 +46,7 @@ class Background(Protocol):
     """
 
     @property
-    def hubble_constant(self) -> Float[Array, ""]:  # noqa: F722
+    def hubble_constant(self) -> Float[Array, ""]:
         """Hubble constant :math:`H_0`.
 
         Returns
@@ -56,7 +56,7 @@ class Background(Protocol):
         """
         ...
 
-    def hubble_parameter(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:  # noqa: F722
+    def hubble_parameter(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
         """Hubble rate :math:`H(z)`.
 
         Parameters
@@ -73,8 +73,8 @@ class Background(Protocol):
 
     def matter_density_parameter(
         self,
-        z: Real[ArrayLike, "*shape"],  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        z: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Matter density parameter :math:`\\Omega_m(z)`.
 
         Parameters
@@ -90,7 +90,7 @@ class Background(Protocol):
         """
         ...
 
-    def comoving_distance(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:  # noqa: F722
+    def comoving_distance(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
         """Line-of-sight comoving distance :math:`\\chi(z)`.
 
         Parameters
@@ -108,8 +108,8 @@ class Background(Protocol):
 
     def redshift_at_comoving_distance(
         self,
-        chi: Real[ArrayLike, "*shape"],  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        chi: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Inverse of :meth:`comoving_distance`.
 
         Parameters
@@ -126,8 +126,8 @@ class Background(Protocol):
 
     def transverse_comoving_distance(
         self,
-        z: Real[ArrayLike, "*shape"],  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        z: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Transverse comoving distance :math:`D_M(z)`.
 
         The default assumes a flat universe, :math:`D_M = \\chi`. Curved models
@@ -147,8 +147,8 @@ class Background(Protocol):
 
     def luminosity_distance(
         self,
-        z: Real[ArrayLike, "*shape"],  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        z: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Luminosity distance :math:`d_L = (1 + z) D_M`.
 
         Parameters
@@ -165,8 +165,8 @@ class Background(Protocol):
 
     def angular_diameter_distance(
         self,
-        z: Real[ArrayLike, "*shape"],  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        z: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Angular diameter distance :math:`d_A = D_M / (1 + z)`.
 
         Parameters
@@ -183,8 +183,8 @@ class Background(Protocol):
 
     def differential_comoving_volume(
         self,
-        z: Real[ArrayLike, "*shape"],  # noqa: F722
-    ) -> Float[Array, "*shape"]:  # noqa: F722
+        z: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Comoving volume per unit redshift and solid angle.
 
         Parameters

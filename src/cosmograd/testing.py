@@ -35,7 +35,7 @@ _BACKGROUND_METHODS: tuple[str, ...] = (
 
 def check_background(
     cosmo: Background,
-    z: Real[ArrayLike, "*shape"],  # noqa: F722
+    z: Real[ArrayLike, "*shape"],
     *,
     rtol: float = 1e-6,
 ) -> None:
@@ -125,8 +125,8 @@ def check_background(
 
 def check_perturbations(
     cosmo: Perturbations,
-    k: Real[ArrayLike, "*#shape"],  # noqa: F722
-    z: Real[ArrayLike, "*#shape"],  # noqa: F722
+    k: Real[ArrayLike, "*#shape"],
+    z: Real[ArrayLike, "*#shape"],
 ) -> None:
     """Check that ``cosmo`` honours the :class:`~cosmograd.Perturbations` contract.
 

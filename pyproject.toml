@@ -8,7 +8,9 @@ authors = [
     { name = "binado", email = "bernardopveronese@gmail.com" },
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "jax>=0.10",
+]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -29,6 +31,14 @@ Homepage = "https://github.com/binado/cosmograd"
 Repository = "https://github.com/binado/cosmograd.git"
 Issues = "https://github.com/binado/cosmograd/issues"
 
+[project.optional-dependencies]
+cosmopower = [
+    "cosmopower-jax>=0.5.8",
+]
+bacco = [
+    "baccoemu>=2.3.0",
+]
+
 
 [build-system]
 requires = ["uv_build>=0.12.18,<0.13"]
@@ -42,6 +52,7 @@ dev = [
     { include-group = "test" },
 ]
 test = [
+    "astropy>=8.0.2",
     "pytest>=9.1.1",
 ]
 

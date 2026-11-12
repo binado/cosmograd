@@ -2,6 +2,44 @@
 
 Differentiable cosmology in JAX behind a small protocol contract.
 
+Consumers depend on two protocols, `Background` (expansion history and
+distances) and `Perturbations` (growth and power spectra), not on any one
+implementation. The core depends on JAX only; emulator backends sit behind
+optional extras.
+
+## Install
+
+```console
+uv add cosmograd                       # core: protocols + native backgrounds
+uv add 'cosmograd[cosmopower]'         # CosmoPower-JAX backend (planned)
+uv add 'cosmograd[bacco]'              # bacco emulator backend (planned)
+```
+
+## Usage
+
+```python
+import jax
+import jax.numpy as jnp
+from cosmograd import FlatLCDM
+
+cosmo = FlatLCDM(h=0.6736, omega_m=0.3153)
+z = jnp.linspace(0.1, 2.0, 20)
+
+cosmo.luminosity_distance(z)  # Mpc
+jax.jacfwd(lambda c: c.luminosity_distance(z))(cosmo)  # FlatLCDM-shaped Jacobian
+```
+
+Units: distances in Mpc, wavenumbers in 1/Mpc, H in 1/Mpc (c = 1), power spectra
+in Mpc^3. Inputs are not validated; each method documents the range it expects.
+
+To check your own implementation against the contract:
+
+```python
+from cosmograd.testing import check_background
+
+check_background(MyBackground(...), z=jnp.linspace(0.0, 3.0, 50))
+```
+
 ## Setup
 
 [Install uv](https://docs.astral.sh/uv/getting-started/installation/) and
@@ -13,9 +51,6 @@ uv run prek install
 ```
 
 The underlying command is `uv sync --all-groups` if Just is unavailable.
-
-
-
 ## Development
 
 ```console
@@ -35,4 +70,3 @@ The template runs `uv lock`, so updates must explicitly trust it:
 uvx copier@9.18.2 update --trust
 just check
 ```
-

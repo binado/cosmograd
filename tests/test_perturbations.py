@@ -9,9 +9,11 @@ import numpy as np
 
 from cosmograd import Perturbations
 
+from .conftest import PerturbationsCase
 
-def test_growth_decreases_with_redshift(perturbations: Perturbations) -> None:
-    growth = perturbations.growth_function(jnp.linspace(0.0, 3.0, 20))
+
+def test_growth_decreases_with_redshift(perturbations_case: PerturbationsCase) -> None:
+    growth = perturbations_case.cosmo.growth_function(perturbations_case.z)
     assert jnp.all(jnp.diff(growth) < 0)
 
 

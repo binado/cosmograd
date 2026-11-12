@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import pytest
 
 from cosmograd import FlatLCDM
-from cosmograd.protocols import Background
+from cosmograd.background import Background
 from cosmograd.testing import check_background
 
 BACKGROUNDS: list[Background] = [FlatLCDM(h=0.67, omega_m=0.31)]

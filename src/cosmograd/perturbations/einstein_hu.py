@@ -9,7 +9,8 @@ from __future__ import annotations
 from jax import Array
 from jax.typing import ArrayLike
 
-from .protocols import Background, Perturbations
+from ..background import Background
+from .protocol import Perturbations
 
 __all__ = ["EisensteinHu"]
 

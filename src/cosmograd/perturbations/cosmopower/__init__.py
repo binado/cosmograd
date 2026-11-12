@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from types import ModuleType
 
-from ._optional import require
+from .._optional import require
 
 __all__ = ["load_cosmopower"]
 

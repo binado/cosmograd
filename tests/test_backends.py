@@ -3,15 +3,15 @@ import sys
 
 import pytest
 
-from cosmograd.backends import _optional
-from cosmograd.backends.bacco import load_baccoemu
-from cosmograd.backends.cosmopower import load_cosmopower
+from cosmograd.perturbations import _optional
+from cosmograd.perturbations.baccoemu import load_baccoemu
+from cosmograd.perturbations.cosmopower import load_cosmopower
 
 
 def test_core_import_skips_emulators() -> None:
     code = (
         "import sys, cosmograd; "
-        "assert not {'cosmopower_jax', 'baccoemu', 'cosmograd.backends'} & set(sys.modules)"
+        "assert not {'cosmopower_jax', 'baccoemu', 'cosmograd.perturbations.baccoemu', 'cosmograd.perturbations.cosmopower'} & set(sys.modules)"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
 

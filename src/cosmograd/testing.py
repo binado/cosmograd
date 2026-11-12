@@ -18,7 +18,8 @@ import jax.numpy as jnp
 import numpy as np
 from jax.typing import ArrayLike
 
-from .protocols import Background, Perturbations
+from .background import Background
+from .perturbations import Perturbations
 
 __all__ = ["check_background", "check_perturbations"]
 

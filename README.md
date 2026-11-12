@@ -5,7 +5,7 @@ Differentiable cosmology in JAX behind a small protocol contract.
 Consumers depend on two protocols, `Background` (expansion history and
 distances) and `Perturbations` (growth and power spectra), not on any one
 implementation. The core depends on JAX only; emulator backends sit behind
-optional extras. The design is in [docs/design.md](docs/design.md).
+optional extras.
 
 ## Install
 

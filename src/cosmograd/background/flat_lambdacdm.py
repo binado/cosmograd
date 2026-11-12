@@ -10,13 +10,13 @@ import jax.numpy as jnp
 from jax import Array
 from jax.typing import ArrayLike
 
-from .constants import (
+from ..constants import (
     C_KM_S,
     NEUTRINO_TO_PHOTON_PER_SPECIES,
     OMEGA_GAMMA_H2_FIDUCIAL,
     T_CMB_FIDUCIAL,
 )
-from .protocols import Background
+from .protocol import Background
 
 __all__ = ["FlatLCDM"]
 

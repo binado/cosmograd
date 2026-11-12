@@ -17,7 +17,7 @@ def cosmo() -> CosmoPower:
 
 
 def test_background_shares_parameters(cosmo: CosmoPower) -> None:
-    assert cosmo.background == FlatLCDM(h=cosmo.h, omega_m=cosmo.omega_m)
+    assert cosmo.background == FlatLCDM(H0=100 * cosmo.h, omega_m=cosmo.omega_m)
 
 
 def test_sigma8_planck(cosmo: CosmoPower) -> None:

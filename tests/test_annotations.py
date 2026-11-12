@@ -43,7 +43,7 @@ BACKGROUND_METHODS = (
     ],
 )
 def test_background_input_shapes(method: str, value: ArrayLike) -> None:
-    cosmo = FlatLCDM(h=0.67, omega_m=0.31)
+    cosmo = FlatLCDM(H0=67.0, omega_m=0.31)
     result = getattr(cosmo, method)(value)
     assert isinstance(result, Array)
     assert result.shape == np.shape(value)
@@ -52,7 +52,7 @@ def test_background_input_shapes(method: str, value: ArrayLike) -> None:
 
 @pytest.mark.parametrize("name", ["hubble_constant", "omega_r", "omega_de"])
 def test_scalar_properties(name: str) -> None:
-    result = getattr(FlatLCDM(h=0.67, omega_m=0.31), name)
+    result = getattr(FlatLCDM(H0=67.0, omega_m=0.31), name)
     assert isinstance(result, Array)
     assert result.shape == ()
     assert jnp.issubdtype(result.dtype, jnp.floating)
@@ -61,7 +61,7 @@ def test_scalar_properties(name: str) -> None:
 @pytest.mark.parametrize("method", BACKGROUND_METHODS)
 @pytest.mark.parametrize("value", [1 + 1j, np.array([1j]), jnp.array([1j])])
 def test_import_hook_rejects_complex(method: str, value: ArrayLike) -> None:
-    cosmo = FlatLCDM(h=0.67, omega_m=0.31)
+    cosmo = FlatLCDM(H0=67.0, omega_m=0.31)
     with pytest.raises(TypeCheckError):
         getattr(cosmo, method)(value)
 

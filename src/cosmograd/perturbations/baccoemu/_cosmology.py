@@ -223,7 +223,10 @@ class BaccoEmu(Perturbations):
             A :class:`~cosmograd.FlatLCDM`; see the class notes for what it
             leaves out.
         """
-        return FlatLCDM(h=self.h, omega_m=self._param("omega_cold") + self._omega_nu)
+        return FlatLCDM(
+            H0=100 * jnp.asarray(self.h),
+            omega_m=self._param("omega_cold") + self._omega_nu,
+        )
 
     def growth_function(
         self,

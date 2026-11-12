@@ -22,7 +22,7 @@ import jax
 import jax.numpy as jnp
 from cosmograd import FlatLCDM
 
-cosmo = FlatLCDM(h=0.6736, omega_m=0.3153)
+cosmo = FlatLCDM(H0=67.36, omega_m=0.3153)
 z = jnp.linspace(0.1, 2.0, 20)
 
 cosmo.luminosity_distance(z)  # Mpc

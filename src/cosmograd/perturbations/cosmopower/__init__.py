@@ -171,7 +171,7 @@ class CosmoPower(Perturbations):
         FlatLCDM
             Background with default radiation content.
         """
-        return FlatLCDM(h=self.h, omega_m=self.omega_m)
+        return FlatLCDM(H0=100 * jnp.asarray(self.h), omega_m=self.omega_m)
 
     def _emulator_inputs(self, z: Array) -> dict[str, Array]:
         """Translate the parameters to CosmoPower's names, one row per redshift.

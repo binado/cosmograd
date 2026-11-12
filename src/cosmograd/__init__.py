@@ -9,8 +9,8 @@ here.
 from importlib.metadata import version
 
 from .background import Background, FlatLCDM
-from .perturbations import Perturbations
+from .perturbations import EisensteinHu, Perturbations
 
 __version__ = version("cosmograd")
 
-__all__ = ["Background", "FlatLCDM", "Perturbations", "__version__"]
+__all__ = ["Background", "EisensteinHu", "FlatLCDM", "Perturbations", "__version__"]

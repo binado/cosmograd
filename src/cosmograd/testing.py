@@ -135,6 +135,7 @@ def check_perturbations(
     *,
     rtol: float = 1e-6,
     growth_rate_rtol: float = 0.1,
+    check_nonlinear: bool = True,
 ) -> None:
     """Check that ``cosmo`` honours the :class:`~cosmograd.Perturbations` contract.
 
@@ -154,7 +155,7 @@ def check_perturbations(
       from a one-sided finite difference towards higher redshift;
     - gives the same results under :func:`jax.jit`;
     - has a finite :func:`jax.jacfwd` with respect to itself, shaped like
-      ``cosmo``, for the linear and nonlinear spectra.
+      ``cosmo``, for the linear spectrum and, optionally, the nonlinear spectrum.
 
     Parameters
     ----------
@@ -164,7 +165,7 @@ def check_perturbations(
         Wavenumbers in 1/Mpc, inside the range ``cosmo`` documents.
     z : ArrayLike
         Redshifts, broadcastable against ``k``, non-negative and inside the
-        range ``cosmo`` documents for the nonlinear spectrum. Use at least
+        range ``cosmo`` documents for the spectra being checked. Use at least
         one non-zero value. The growth-rate check also evaluates the growth
         function up to :math:`\\ln(1 + z)` + 0.1.
     rtol : float, default 1e-6
@@ -174,6 +175,8 @@ def check_perturbations(
         convention (derivative in :math:`\\ln a`, sign), not accuracy:
         emulated growth functions are not smooth enough for a tight
         finite-difference comparison.
+    check_nonlinear : bool, default True
+        Also check nonlinear power. Set False for linear-only backends.
 
     Raises
     ------
@@ -189,7 +192,7 @@ def check_perturbations(
     assert isinstance(cosmo.background, Background), "background is not a Background"
     _check_leaves(cosmo)
 
-    for nonlinear in (False, True):
+    for nonlinear in (False, True) if check_nonlinear else (False,):
         pk = cosmo.matter_power_spectrum(k, z, nonlinear=nonlinear)
         name = f"matter_power_spectrum(nonlinear={nonlinear})"
         assert pk.shape == shape, f"{name} has shape {pk.shape}, expected {shape}"
@@ -252,14 +255,16 @@ def check_perturbations(
         "primordial_power_spectrum returned non-finite or non-positive values"
     )
 
-    np.testing.assert_allclose(
-        jax.jit(lambda c: c.matter_power_spectrum(k, z, nonlinear=True))(cosmo),
-        cosmo.matter_power_spectrum(k, z, nonlinear=True),
-        rtol=rtol,
-        err_msg="matter_power_spectrum differs under jit",
-    )
+    for nonlinear in (False, True) if check_nonlinear else (False,):
+        np.testing.assert_allclose(
+            jax.jit(lambda c: c.matter_power_spectrum(k, z, nonlinear=nonlinear))(
+                cosmo
+            ),
+            cosmo.matter_power_spectrum(k, z, nonlinear=nonlinear),
+            rtol=rtol,
+            err_msg="matter_power_spectrum differs under jit",
+        )
 
-    for nonlinear in (False, True):
         jac = jax.jacfwd(lambda c: c.matter_power_spectrum(k, z, nonlinear=nonlinear))(
             cosmo
         )

@@ -6,8 +6,7 @@ The protocol contract itself is checked by
 
 import jax.numpy as jnp
 import numpy as np
-
-from cosmograd import Perturbations
+import pytest
 
 from .conftest import PerturbationsCase
 
@@ -18,8 +17,11 @@ def test_growth_decreases_with_redshift(perturbations_case: PerturbationsCase) -
 
 
 def test_nonlinear_matches_linear_on_large_scales(
-    perturbations: Perturbations,
+    perturbations_case: PerturbationsCase,
 ) -> None:
+    if not perturbations_case.supports_nonlinear:
+        pytest.skip("backend supports linear power only")
+    perturbations = perturbations_case.cosmo
     k, z = jnp.geomspace(1e-4, 1e-3, 5), 0.5
     np.testing.assert_allclose(
         perturbations.matter_power_spectrum(k, z, nonlinear=True),

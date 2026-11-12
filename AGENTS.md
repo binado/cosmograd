@@ -22,6 +22,10 @@ is unavailable.
 ## Testing styleguide
 
 - Use pytest with `test_*.py` files and `test_*` functions.
+- Use pytest fixtures for shared setup and objects under test, putting fixtures
+used by several files in `tests/conftest.py`
+- Use `@pytest.mark.parametrize` (or parametrized fixtures) to vary inputs and
+implementations, not loops or hand-rolled helpers inside a test
 - Avoid tests that repeat the function implementation
 - Test array comparisons with `np.testing.assert_allclose`
 - Avoid tests that require fine-tuned tolerances

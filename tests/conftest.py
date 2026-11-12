@@ -32,7 +32,9 @@ def _requires(module: str) -> pytest.MarkDecorator:
     )
 
 
-@pytest.fixture(params=[FlatLCDM(h=0.67, omega_m=0.31)], ids=lambda c: type(c).__name__)
+@pytest.fixture(
+    params=[FlatLCDM(H0=67.0, omega_m=0.31)], ids=lambda c: type(c).__name__
+)
 def background(request: pytest.FixtureRequest) -> Background:
     """Every in-tree background implementation; add new backends to ``params``."""
     return request.param

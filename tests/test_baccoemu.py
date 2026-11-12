@@ -187,7 +187,7 @@ def test_background_is_flat_lcdm_with_neutrinos_as_matter() -> None:
     omega_nu = HEAVY_NU.neutrino_mass / 93.14 / HEAVY_NU.h**2
     assert isinstance(HEAVY_NU, Perturbations)
     assert HEAVY_NU.background == FlatLCDM(
-        h=HEAVY_NU.h, omega_m=HEAVY_NU.omega_cold + omega_nu
+        H0=100 * HEAVY_NU.h, omega_m=HEAVY_NU.omega_cold + omega_nu
     )
 
 

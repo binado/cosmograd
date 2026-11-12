@@ -3,6 +3,7 @@
 .coverage
 .pytest_cache/
 .ruff_cache/
+.scratchpad/
 .ty_cache/
 .venv/
 __pycache__/

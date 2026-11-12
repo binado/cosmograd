@@ -42,6 +42,6 @@ def test_provided_methods() -> None:
 
 
 def test_isinstance() -> None:
-    cosmo = FlatLCDM(h=0.67, omega_m=0.31)
+    cosmo = FlatLCDM(H0=67.0, omega_m=0.31)
     assert isinstance(cosmo, Background)
     assert not isinstance(cosmo, Perturbations)

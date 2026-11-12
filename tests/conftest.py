@@ -3,7 +3,9 @@
 import importlib.util
 
 import jax
+import jax.numpy as jnp
 import pytest
+from jax import Array
 
 from cosmograd import FlatLCDM, Perturbations
 from cosmograd.background import Background
@@ -56,3 +58,16 @@ def perturbations(request: pytest.FixtureRequest) -> Perturbations:
     Emulator backends are skipped when their optional extra is missing.
     """
     return request.param
+
+
+# Wavenumbers (1/Mpc) and redshifts inside each backend's documented range.
+_DEFAULT_GRID = (jnp.geomspace(1e-3, 1.0, 7), jnp.linspace(0.0, 3.0, 4))
+_GRIDS: dict[type, tuple[Array, Array]] = {
+    BaccoEmu: (jnp.geomspace(1e-3, 1.0, 7), jnp.linspace(0.0, 1.5, 4)),
+}
+
+
+@pytest.fixture
+def perturbations_grid(perturbations: Perturbations) -> tuple[Array, Array]:
+    """1-D ``(k, z)`` inside the range the ``perturbations`` backend documents."""
+    return _GRIDS.get(type(perturbations), _DEFAULT_GRID)

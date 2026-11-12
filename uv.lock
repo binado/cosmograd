@@ -323,6 +323,7 @@ source = { editable = "." }
 dependencies = [
     { name = "jax" },
     { name = "jaxtyping" },
+    { name = "numpy" },
 ]
 
 [package.optional-dependencies]
@@ -354,6 +355,7 @@ requires-dist = [
     { name = "cosmopower-jax", marker = "extra == 'cosmopower'", specifier = ">=0.5.8" },
     { name = "jax", specifier = ">=0.10" },
     { name = "jaxtyping", specifier = ">=0.3.11" },
+    { name = "numpy", specifier = ">=2.5.4" },
 ]
 provides-extras = ["cosmopower", "bacco"]
 

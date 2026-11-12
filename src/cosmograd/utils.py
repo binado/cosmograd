@@ -1,6 +1,7 @@
 """Numerical utilities shared by cosmology implementations."""
 
 import jax.numpy as jnp
+import numpy as np
 from jax import Array
 from jax.typing import ArrayLike
 from jaxtyping import Float, Real
@@ -30,14 +31,11 @@ def gauss_legendre_nodes_and_weights(
 
     Notes
     -----
-    Uses the Golub–Welsch eigenvalue construction for Legendre polynomials.
+    Computes nodes and weights with NumPy at trace time, then converts them to
+    JAX arrays.
     """
-    k = jnp.arange(1, n, dtype=float)
-    off_diagonal = k / jnp.sqrt(4 * k**2 - 1)
-    matrix = jnp.diag(jnp.zeros(n))
-    matrix = matrix + jnp.diag(off_diagonal, 1) + jnp.diag(off_diagonal, -1)
-    nodes, eigenvectors = jnp.linalg.eigh(matrix)
-    return nodes, 2 * eigenvectors[0] ** 2
+    nodes, weights = np.polynomial.legendre.leggauss(n)
+    return jnp.asarray(nodes), jnp.asarray(weights)
 
 
 def affine_transform_gauss_legendre_nodes(

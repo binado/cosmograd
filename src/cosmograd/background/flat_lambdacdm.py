@@ -78,6 +78,12 @@ class FlatLCDM(Background):
     ``comoving_distance(z_max)``. They need not be sorted.
     """
 
+    # Tells jaxtyping's import hook not to check the generated ``__init__``
+    # (methods and properties stay checked). JAX rebuilds this pytree with
+    # non-array placeholder leaves during transforms such as ``jacfwd``, which
+    # would fail the field annotations below.
+    __no_type_check__ = True
+
     h: Real[ArrayLike, "..."]
     omega_m: Real[ArrayLike, "..."]
     t_cmb: float = T_CMB_FIDUCIAL

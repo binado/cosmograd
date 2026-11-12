@@ -4,7 +4,7 @@ Differentiable cosmology in JAX behind a small protocol contract.
 
 Consumers depend on two protocols, `Background` (expansion history and
 distances) and `Perturbations` (growth and power spectra), not on any one
-implementation. The core depends on JAX only; emulator backends sit behind
+implementation. The core depends on JAX and jaxtyping; emulator backends sit behind
 optional extras.
 
 ## Install
@@ -62,3 +62,8 @@ just test       # uv run pytest
 just hooks      # uv run prek run --all-files
 just check      # full validation, tests, and package build
 ```
+
+Tests check shape and dtype annotations through jaxtyping’s pytest import hook
+and beartype. Normal library imports do not enable runtime checking or require
+beartype. Shape annotations document conventions; static type checking does not
+verify array shapes.

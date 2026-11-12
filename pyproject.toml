@@ -10,6 +10,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "jax>=0.10",
+    "jaxtyping>=0.3.11",
 ]
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -53,11 +54,12 @@ dev = [
 ]
 test = [
     "astropy>=8.0.2",
+    "beartype>=0.23.1",
     "pytest>=9.1.1",
 ]
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-ra --jaxtyping-packages=cosmograd,tests.typecheck"
 testpaths = ["tests"]
 
 [tool.ruff]

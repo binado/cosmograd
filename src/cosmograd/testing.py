@@ -11,12 +11,11 @@ The checks assume concrete (non-traced) inputs and should run in double
 precision; enable ``jax_enable_x64`` in your test configuration.
 """
 
-from __future__ import annotations
-
 import jax
 import jax.numpy as jnp
 import numpy as np
 from jax.typing import ArrayLike
+from jaxtyping import Real
 
 from .background import Background
 from .perturbations import Perturbations
@@ -34,7 +33,12 @@ _BACKGROUND_METHODS: tuple[str, ...] = (
 )
 
 
-def check_background(cosmo: Background, z: ArrayLike, *, rtol: float = 1e-6) -> None:
+def check_background(
+    cosmo: Background,
+    z: Real[ArrayLike, "*shape"],  # noqa: F722
+    *,
+    rtol: float = 1e-6,
+) -> None:
     """Check that ``cosmo`` honours the :class:`~cosmograd.Background` contract.
 
     Checks that ``cosmo``
@@ -119,7 +123,11 @@ def check_background(cosmo: Background, z: ArrayLike, *, rtol: float = 1e-6) -> 
         assert jnp.all(jnp.isfinite(leaf)), "the Jacobian has non-finite entries"
 
 
-def check_perturbations(cosmo: Perturbations, k: ArrayLike, z: ArrayLike) -> None:
+def check_perturbations(
+    cosmo: Perturbations,
+    k: Real[ArrayLike, "*#shape"],  # noqa: F722
+    z: Real[ArrayLike, "*#shape"],  # noqa: F722
+) -> None:
     """Check that ``cosmo`` honours the :class:`~cosmograd.Perturbations` contract.
 
     Not implemented yet; it will land with the first native perturbations

@@ -15,13 +15,12 @@ Conventions shared by every implementation:
   :mod:`cosmograd.testing` instead.
 """
 
-from __future__ import annotations
-
 from typing import Protocol, runtime_checkable
 
 import jax.numpy as jnp
 from jax import Array
 from jax.typing import ArrayLike
+from jaxtyping import Float, Real
 
 __all__ = ["Background"]
 
@@ -47,7 +46,7 @@ class Background(Protocol):
     """
 
     @property
-    def hubble_constant(self) -> Array:
+    def hubble_constant(self) -> Float[Array, ""]:  # noqa: F722
         """Hubble constant :math:`H_0`.
 
         Returns
@@ -57,7 +56,7 @@ class Background(Protocol):
         """
         ...
 
-    def hubble_parameter(self, z: ArrayLike) -> Array:
+    def hubble_parameter(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:  # noqa: F722
         """Hubble rate :math:`H(z)`.
 
         Parameters
@@ -72,7 +71,10 @@ class Background(Protocol):
         """
         ...
 
-    def matter_density_parameter(self, z: ArrayLike) -> Array:
+    def matter_density_parameter(
+        self,
+        z: Real[ArrayLike, "*shape"],  # noqa: F722
+    ) -> Float[Array, "*shape"]:  # noqa: F722
         """Matter density parameter :math:`\\Omega_m(z)`.
 
         Parameters
@@ -88,7 +90,7 @@ class Background(Protocol):
         """
         ...
 
-    def comoving_distance(self, z: ArrayLike) -> Array:
+    def comoving_distance(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:  # noqa: F722
         """Line-of-sight comoving distance :math:`\\chi(z)`.
 
         Parameters
@@ -104,7 +106,10 @@ class Background(Protocol):
         """
         ...
 
-    def redshift_at_comoving_distance(self, chi: ArrayLike) -> Array:
+    def redshift_at_comoving_distance(
+        self,
+        chi: Real[ArrayLike, "*shape"],  # noqa: F722
+    ) -> Float[Array, "*shape"]:  # noqa: F722
         """Inverse of :meth:`comoving_distance`.
 
         Parameters
@@ -119,7 +124,10 @@ class Background(Protocol):
         """
         ...
 
-    def transverse_comoving_distance(self, z: ArrayLike) -> Array:
+    def transverse_comoving_distance(
+        self,
+        z: Real[ArrayLike, "*shape"],  # noqa: F722
+    ) -> Float[Array, "*shape"]:  # noqa: F722
         """Transverse comoving distance :math:`D_M(z)`.
 
         The default assumes a flat universe, :math:`D_M = \\chi`. Curved models
@@ -137,7 +145,10 @@ class Background(Protocol):
         """
         return self.comoving_distance(z)
 
-    def luminosity_distance(self, z: ArrayLike) -> Array:
+    def luminosity_distance(
+        self,
+        z: Real[ArrayLike, "*shape"],  # noqa: F722
+    ) -> Float[Array, "*shape"]:  # noqa: F722
         """Luminosity distance :math:`d_L = (1 + z) D_M`.
 
         Parameters
@@ -152,7 +163,10 @@ class Background(Protocol):
         """
         return (1 + jnp.asarray(z)) * self.transverse_comoving_distance(z)
 
-    def angular_diameter_distance(self, z: ArrayLike) -> Array:
+    def angular_diameter_distance(
+        self,
+        z: Real[ArrayLike, "*shape"],  # noqa: F722
+    ) -> Float[Array, "*shape"]:  # noqa: F722
         """Angular diameter distance :math:`d_A = D_M / (1 + z)`.
 
         Parameters
@@ -167,7 +181,10 @@ class Background(Protocol):
         """
         return self.transverse_comoving_distance(z) / (1 + jnp.asarray(z))
 
-    def differential_comoving_volume(self, z: ArrayLike) -> Array:
+    def differential_comoving_volume(
+        self,
+        z: Real[ArrayLike, "*shape"],  # noqa: F722
+    ) -> Float[Array, "*shape"]:  # noqa: F722
         """Comoving volume per unit redshift and solid angle.
 
         Parameters

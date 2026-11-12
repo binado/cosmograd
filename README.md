@@ -51,6 +51,7 @@ uv run prek install
 ```
 
 The underlying command is `uv sync --all-groups` if Just is unavailable.
+
 ## Development
 
 ```console
@@ -60,13 +61,4 @@ just typecheck  # uv run ty check
 just test       # uv run pytest
 just hooks      # uv run prek run --all-files
 just check      # full validation, tests, and package build
-```
-
-## Update from the template
-
-The template runs `uv lock`, so updates must explicitly trust it:
-
-```console
-uvx copier@9.18.2 update --trust
-just check
 ```

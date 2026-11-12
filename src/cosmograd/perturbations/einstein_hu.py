@@ -4,10 +4,9 @@ Not implemented yet. This module is a placeholder for the native
 :class:`~cosmograd.Perturbations` implementation installed with the core.
 """
 
-from __future__ import annotations
-
 from jax import Array
 from jax.typing import ArrayLike
+from jaxtyping import Float, Real
 
 from ..background import Background
 from .protocol import Perturbations
@@ -32,7 +31,12 @@ class EisensteinHu(Perturbations):
         """
         raise NotImplementedError
 
-    def growth_function(self, z: ArrayLike, *, k: ArrayLike | None = None) -> Array:
+    def growth_function(
+        self,
+        z: Real[ArrayLike, "*#shape"],
+        *,
+        k: Real[ArrayLike, "*#shape"] | None = None,
+    ) -> Float[Array, "*shape"]:
         """Not implemented.
 
         Raises
@@ -42,7 +46,12 @@ class EisensteinHu(Perturbations):
         """
         raise NotImplementedError
 
-    def growth_rate(self, z: ArrayLike, *, k: ArrayLike | None = None) -> Array:
+    def growth_rate(
+        self,
+        z: Real[ArrayLike, "*#shape"],
+        *,
+        k: Real[ArrayLike, "*#shape"] | None = None,
+    ) -> Float[Array, "*shape"]:
         """Not implemented.
 
         Raises
@@ -53,8 +62,12 @@ class EisensteinHu(Perturbations):
         raise NotImplementedError
 
     def matter_power_spectrum(
-        self, k: ArrayLike, z: ArrayLike, *, nonlinear: bool = False
-    ) -> Array:
+        self,
+        k: Real[ArrayLike, "*#shape"],
+        z: Real[ArrayLike, "*#shape"],
+        *,
+        nonlinear: bool = False,
+    ) -> Float[Array, "*shape"]:
         """Not implemented.
 
         Raises
@@ -64,7 +77,10 @@ class EisensteinHu(Perturbations):
         """
         raise NotImplementedError
 
-    def primordial_power_spectrum(self, k: ArrayLike) -> Array:
+    def primordial_power_spectrum(
+        self,
+        k: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Not implemented.
 
         Raises

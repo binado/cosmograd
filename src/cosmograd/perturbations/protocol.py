@@ -15,12 +15,11 @@ Conventions shared by every implementation:
   :mod:`cosmograd.testing` instead.
 """
 
-from __future__ import annotations
-
 from typing import Protocol, runtime_checkable
 
 from jax import Array
 from jax.typing import ArrayLike
+from jaxtyping import Float, Real
 
 from ..background import Background
 
@@ -47,7 +46,12 @@ class Perturbations(Protocol):
         """
         ...
 
-    def growth_function(self, z: ArrayLike, *, k: ArrayLike | None = None) -> Array:
+    def growth_function(
+        self,
+        z: Real[ArrayLike, "*#shape"],
+        *,
+        k: Real[ArrayLike, "*#shape"] | None = None,
+    ) -> Float[Array, "*shape"]:
         """Linear growth function :math:`D`, normalised to 1 at :math:`z = 0`.
 
         With scale dependence it is defined through the linear spectrum,
@@ -73,7 +77,12 @@ class Perturbations(Protocol):
         """
         ...
 
-    def growth_rate(self, z: ArrayLike, *, k: ArrayLike | None = None) -> Array:
+    def growth_rate(
+        self,
+        z: Real[ArrayLike, "*#shape"],
+        *,
+        k: Real[ArrayLike, "*#shape"] | None = None,
+    ) -> Float[Array, "*shape"]:
         """Linear growth rate :math:`f = \\mathrm{d}\\ln D / \\mathrm{d}\\ln a`.
 
         Parameters
@@ -92,8 +101,12 @@ class Perturbations(Protocol):
         ...
 
     def matter_power_spectrum(
-        self, k: ArrayLike, z: ArrayLike, *, nonlinear: bool = False
-    ) -> Array:
+        self,
+        k: Real[ArrayLike, "*#shape"],
+        z: Real[ArrayLike, "*#shape"],
+        *,
+        nonlinear: bool = False,
+    ) -> Float[Array, "*shape"]:
         """Matter power spectrum :math:`P(k, z)`.
 
         Parameters
@@ -113,7 +126,10 @@ class Perturbations(Protocol):
         """
         ...
 
-    def primordial_power_spectrum(self, k: ArrayLike) -> Array:
+    def primordial_power_spectrum(
+        self,
+        k: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
         """Dimensionless primordial curvature power spectrum.
 
         Parameters

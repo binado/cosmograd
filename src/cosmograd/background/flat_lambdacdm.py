@@ -24,6 +24,9 @@ from .protocol import Background
 
 __all__ = ["FlatLCDM"]
 
+# Fixed number of Newton iterations used by the inverse distance relation.
+_NEWTON_ITERATIONS = 7
+
 
 @partial(
     jax.tree_util.register_dataclass,
@@ -53,8 +56,8 @@ class FlatLCDM(Background):
     batch of cosmologies with :func:`jax.vmap`.
 
     Distances use 32-point Gauss–Legendre quadrature in
-    :math:`\\ln(1 + z)`. The inverse relation uses seven Newton iterations
-    in the same coordinate, with implicit differentiation through
+    :math:`\\ln(1 + z)`. The inverse relation uses a fixed number of Newton
+    iterations in the same coordinate, with implicit differentiation through
     :func:`jax.lax.custom_root` and an analytic residual derivative.
 
     Parameters
@@ -68,6 +71,7 @@ class FlatLCDM(Background):
         CMB temperature today in K. Static.
     n_eff : float, default 3.044
         Effective number of massless neutrino species. Static.
+
     Notes
     -----
     No method validates its inputs. Redshifts and distances are expected to be
@@ -222,7 +226,7 @@ class FlatLCDM(Background):
                 z = jnp.expm1(x)
                 return x - f(x) * self.hubble_parameter(z) / jnp.exp(x)
 
-            return jax.lax.fori_loop(0, 7, step, initial)
+            return jax.lax.fori_loop(0, _NEWTON_ITERATIONS, step, initial)
 
         def tangent_solve(g: Callable[[Array], Array], y: Array) -> Array:
             # Each distance has an independent root, so the Jacobian is diagonal.

@@ -104,10 +104,10 @@ class Perturbations(Protocol):
         self,
         k: Real[ArrayLike, "*#shape"],
         z: Real[ArrayLike, "*#shape"],
-        *,
-        nonlinear: bool = False,
     ) -> Float[Array, "*shape"]:
         """Matter power spectrum :math:`P(k, z)`.
+
+        Linear or nonlinear power is selected when constructing the instance.
 
         Parameters
         ----------
@@ -115,20 +115,12 @@ class Perturbations(Protocol):
             Wavenumber in 1/Mpc (never h/Mpc), positive.
         z : ArrayLike
             Redshift, non-negative. Broadcast elementwise against ``k``.
-        nonlinear : bool, default False
-            Return the nonlinear spectrum instead of the linear one.
 
         Returns
         -------
         Array
             :math:`P(k, z)` in :math:`\\mathrm{Mpc}^3`, with the broadcast
             shape of ``k`` and ``z``.
-
-        Raises
-        ------
-        NotImplementedError
-            Implementations without nonlinear power may raise this when
-            ``nonlinear=True``.
         """
         ...
 

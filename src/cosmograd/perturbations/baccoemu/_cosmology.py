@@ -53,7 +53,7 @@ _Table = Callable[[Float[Array, ""]], Float[Array, " grid"]]
         "w0",
         "wa",
     ],
-    meta_fields=["model_name", "cold"],
+    meta_fields=["model_name", "cold", "nonlinear"],
 )
 @dataclass(frozen=True)
 class BaccoEmu(Perturbations):
@@ -66,7 +66,7 @@ class BaccoEmu(Perturbations):
     never become pytree leaves.
 
     The instance is a pytree whose leaves are the cosmological parameters;
-    ``model_name`` and ``cold`` are static. Give exactly one of
+    ``model_name``, ``cold`` and ``nonlinear`` are static. Give exactly one of
     ``sigma8_cold`` and ``A_s``; the other is left as ``None`` and derived
     from the sigma8 emulator; methods raise :class:`ValueError` otherwise.
     Parameters may be traced, so differentiate with
@@ -103,6 +103,8 @@ class BaccoEmu(Perturbations):
     cold : bool, default False
         Return the cold-matter (CDM + baryons) spectrum instead of the total
         matter one, and cold-matter growth. Static.
+    nonlinear : bool, default False
+        Return the nonlinear matter power spectrum. Static.
 
     Notes
     -----
@@ -145,6 +147,7 @@ class BaccoEmu(Perturbations):
     wa: Real[ArrayLike, "..."] = 0.0
     model_name: ModelName = "Angulo2021"
     cold: bool = False
+    nonlinear: bool = False
 
     @property
     def _emulator(self) -> Emulator:
@@ -300,8 +303,6 @@ class BaccoEmu(Perturbations):
         self,
         k: Real[ArrayLike, "*#shape"],
         z: Real[ArrayLike, "*#shape"],
-        *,
-        nonlinear: bool = False,
     ) -> Float[Array, "*shape"]:
         """Matter power spectrum :math:`P(k, z)`, total or cold per ``cold``.
 
@@ -311,8 +312,6 @@ class BaccoEmu(Perturbations):
             Wavenumber in 1/Mpc, positive.
         z : ArrayLike
             Redshift, non-negative. Broadcast elementwise against ``k``.
-        nonlinear : bool, default False
-            Return the nonlinear spectrum instead of the linear one.
 
         Returns
         -------
@@ -329,7 +328,7 @@ class BaccoEmu(Perturbations):
                 lambda zi: self._log_pk_lin(self._bacco_params(zi)), log_k_lin, k_h, z
             )
         )
-        if not nonlinear:
+        if not self.nonlinear:
             return pk_h / h**3
 
         def boost(zi: Float[Array, ""]) -> Float[Array, " k_nl"]:
@@ -367,13 +366,12 @@ class BaccoEmu(Perturbations):
         self,
         k: Real[ArrayLike, "*k_shape"] | None = None,
         z: Real[ArrayLike, "*z_shape"] = 0.0,
-        *,
-        nonlinear: bool = True,
     ) -> None:
         """Raise if the cosmology, ``k`` or ``z`` lies outside the training ranges.
 
         Performs the validation ``baccoemu`` does on every call. It needs
-        concrete values, so call it outside traced code.
+        concrete values, so call it outside traced code. Checks the nonlinear
+        emulator's ranges only when the instance has ``nonlinear=True``.
 
         Parameters
         ----------
@@ -381,8 +379,6 @@ class BaccoEmu(Perturbations):
             Wavenumbers in 1/Mpc that will be evaluated.
         z : ArrayLike, default 0.0
             Redshifts that will be evaluated.
-        nonlinear : bool, default True
-            Also check the nonlinear emulator's ranges.
 
         Raises
         ------
@@ -394,7 +390,7 @@ class BaccoEmu(Perturbations):
         p = {key: float(val) for key, val in self._bacco_params(0.0).items()}
         checks = [(LINEAR_KEYS, emu.bounds_linear, "linear")]
         checks.append((SIGMA8_KEYS, emu.bounds_sigma8, "sigma8"))
-        if nonlinear:
+        if self.nonlinear:
             checks.append((NONLINEAR_KEYS, emu.bounds_nonlinear, "nonlinear"))
 
         errors = []
@@ -408,7 +404,7 @@ class BaccoEmu(Perturbations):
                     )
         if k is not None:
             k_h = np.asarray(k, dtype=float) / p["hubble"]
-            k_max = emu.k_nl[-1] if nonlinear else emu.k_lin[-1]
+            k_max = emu.k_nl[-1] if self.nonlinear else emu.k_lin[-1]
             if np.min(k_h) < emu.k_lin[0] or np.max(k_h) > k_max:
                 errors.append(
                     f"k/h in [{np.min(k_h):.6g}, {np.max(k_h):.6g}] h/Mpc outside "

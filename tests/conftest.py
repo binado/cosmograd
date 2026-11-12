@@ -1,6 +1,7 @@
 """Test configuration. The package itself never changes JAX precision."""
 
 import importlib.util
+from dataclasses import replace
 from typing import NamedTuple
 
 import jax
@@ -43,7 +44,7 @@ def background(request: pytest.FixtureRequest) -> Background:
 class PerturbationsCase(NamedTuple):
     """A perturbations backend with inputs inside its documented range."""
 
-    cosmo: Perturbations
+    cosmo: EisensteinHu | CosmoPower | BaccoEmu
     k: Float[Array, " k"]
     """Wavenumbers in 1/Mpc, increasing."""
     z: Float[Array, " z"]
@@ -95,12 +96,22 @@ class PerturbationsCase(NamedTuple):
         ),
     ]
 )
-def perturbations_case(request: pytest.FixtureRequest) -> PerturbationsCase:
+def perturbations_case(
+    request: pytest.FixtureRequest, nonlinear: bool
+) -> PerturbationsCase:
     """Every in-tree perturbations backend with in-range ``k`` and ``z``.
 
     Add new backends to ``params``. Emulator backends are skipped when their
     optional extra is missing.
     """
+    case = request.param
+    if nonlinear and not case.supports_nonlinear:
+        pytest.skip("backend supports linear power only")
+    return case._replace(cosmo=replace(case.cosmo, nonlinear=nonlinear))
+
+
+@pytest.fixture(params=[False, True], ids=["linear", "nonlinear"])
+def nonlinear(request: pytest.FixtureRequest) -> bool:
     return request.param
 
 

@@ -6,13 +6,10 @@ and pair the emulated spectrum with a native :class:`~cosmograd.Background`.
 
 from __future__ import annotations
 
+import importlib
 from types import ModuleType
 
-from .._optional import require
-
 __all__ = ["load_cosmopower"]
-
-EXTRA: str = "cosmopower"
 
 
 def load_cosmopower() -> ModuleType:
@@ -28,4 +25,10 @@ def load_cosmopower() -> ModuleType:
     ImportError
         If the ``cosmopower`` extra is not installed.
     """
-    return require("cosmopower_jax", EXTRA)
+    try:
+        return importlib.import_module("cosmopower_jax")
+    except ImportError as err:
+        raise ImportError(
+            "'cosmopower_jax' is required for this backend. "
+            "Install it with `pip install 'cosmograd[cosmopower]'`."
+        ) from err

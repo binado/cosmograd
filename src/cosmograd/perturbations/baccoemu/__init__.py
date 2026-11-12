@@ -6,13 +6,10 @@ Not implemented yet: the network evaluation moves here from baccoemu-jax.
 
 from __future__ import annotations
 
+import importlib
 from types import ModuleType
 
-from .._optional import require
-
 __all__ = ["load_baccoemu"]
-
-EXTRA: str = "bacco"
 
 
 def load_baccoemu() -> ModuleType:
@@ -28,4 +25,10 @@ def load_baccoemu() -> ModuleType:
     ImportError
         If the ``bacco`` extra is not installed.
     """
-    return require("baccoemu", EXTRA)
+    try:
+        return importlib.import_module("baccoemu")
+    except ImportError as err:
+        raise ImportError(
+            "'baccoemu' is required for this backend. "
+            "Install it with `pip install 'cosmograd[bacco]'`."
+        ) from err

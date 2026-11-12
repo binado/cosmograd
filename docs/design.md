@@ -17,7 +17,7 @@ A separate JAX package defines two protocols, `Background` and `Perturbations`, 
 | Growth | Takes `z`, with an optional keyword `k` for scale dependence |
 | Backends | Live in the package under `backends/`, imported lazily, no registry |
 
-The package name is not chosen yet; this document calls it "the package".
+The package is named `cosmograd`; this document also calls it "the package".
 
 ## Goals and scope
 
@@ -45,9 +45,9 @@ Out of scope:
 A cosmology is one frozen dataclass, registered as a pytree, whose only leaves are its parameters. Static choices are meta fields, and every method is a pure function of the leaves.
 
 ```python
-@partial(register_dataclass,
-         data_fields=["h", "omega_m"],
-         meta_fields=["t_cmb", "n_eff"])
+@partial(
+    register_dataclass, data_fields=["h", "omega_m"], meta_fields=["t_cmb", "n_eff"]
+)
 @dataclass(frozen=True)
 class FlatLCDM(Background):
     h: ArrayLike
@@ -58,8 +58,9 @@ class FlatLCDM(Background):
     def hubble_parameter(self, z): ...
     def comoving_distance(self, z): ...
 
+
 cosmo = FlatLCDM(h=0.67, omega_m=0.31)
-jax.jacfwd(lambda c: c.luminosity_distance(z))(cosmo)   # FlatLCDM-shaped Jacobian
+jax.jacfwd(lambda c: c.luminosity_distance(z))(cosmo)  # FlatLCDM-shaped Jacobian
 ```
 
 This replaces the `Cosmology` and `CosmoState` pair that corrtracers has today. There is no separate state type and no `grids` argument.
@@ -69,7 +70,7 @@ This replaces the `Cosmology` and `CosmoState` pair that corrtracers has today. 
 ```python
 # inside corrtracers' Model.cl(theta)
 chi = cosmo.background.comoving_distance(grids.z)
-pk  = cosmo.matter_power_spectrum(grids.k, grids.z)
+pk = cosmo.matter_power_spectrum(grids.k, grids.z)
 ```
 
 **Rejected alternative: derived tables as leaves.** Storing the distance or power tables as pytree leaves, built in the constructor, also gives one object. It was rejected for two reasons:
@@ -96,20 +97,23 @@ The test for a member is whether it is meaningful for every cosmology. `hubble_c
 class Background(Protocol):
     # required
     @property
-    def hubble_constant(self) -> Array: ...                   # H0, 1/Mpc
-    def hubble_parameter(self, z) -> Array: ...               # H(z), 1/Mpc
-    def matter_density_parameter(self, z) -> Array: ...       # Omega_m(z)
-    def comoving_distance(self, z) -> Array: ...              # Mpc
+    def hubble_constant(self) -> Array: ...  # H0, 1/Mpc
+    def hubble_parameter(self, z) -> Array: ...  # H(z), 1/Mpc
+    def matter_density_parameter(self, z) -> Array: ...  # Omega_m(z)
+    def comoving_distance(self, z) -> Array: ...  # Mpc
     def redshift_at_comoving_distance(self, chi) -> Array: ...
 
     # provided, in terms of the above
     def transverse_comoving_distance(self, z):
-        return self.comoving_distance(z)                      # flat default
+        return self.comoving_distance(z)  # flat default
+
     def luminosity_distance(self, z):
         return (1 + z) * self.transverse_comoving_distance(z)
+
     def angular_diameter_distance(self, z):
         return self.transverse_comoving_distance(z) / (1 + z)
-    def differential_comoving_volume(self, z):                # Mpc^3 / sr
+
+    def differential_comoving_volume(self, z):  # Mpc^3 / sr
         return self.transverse_comoving_distance(z) ** 2 / self.hubble_parameter(z)
 ```
 
@@ -123,10 +127,10 @@ An implementation gets the provided methods by inheriting from `Background` expl
 class Perturbations(Protocol):
     @property
     def background(self) -> Background: ...
-    def growth_function(self, z, *, k=None) -> Array: ...     # D, equal to 1 at z = 0
-    def growth_rate(self, z, *, k=None) -> Array: ...         # dlnD / dlna
+    def growth_function(self, z, *, k=None) -> Array: ...  # D, equal to 1 at z = 0
+    def growth_rate(self, z, *, k=None) -> Array: ...  # dlnD / dlna
     def matter_power_spectrum(self, k, z, *, nonlinear=False) -> Array: ...  # Mpc^3
-    def primordial_power_spectrum(self, k) -> Array: ...      # dimensionless
+    def primordial_power_spectrum(self, k) -> Array: ...  # dimensionless
 ```
 
 - `background` lets one object satisfy both protocols by returning itself, or lets an emulator adapter pair with any native background.
@@ -166,10 +170,12 @@ Physics that varies between models gets its own small typed pytree, held in a sl
 
 ```python
 cosmo = Cosmology(
-    h=0.6736, omega_b=0.02237, omega_cdm=0.1200,
-    dark_energy=W0Wa(w0=-1.0, wa=0.0),            # or Lambda(), or your own
+    h=0.6736,
+    omega_b=0.02237,
+    omega_cdm=0.1200,
+    dark_energy=W0Wa(w0=-1.0, wa=0.0),  # or Lambda(), or your own
     primordial=PowerLaw(ln10As=3.044, n_s=0.9649),
-    power=Bacco("Arico2023"),                      # static, hashable
+    power=Bacco("Arico2023"),  # static, hashable
 )
 ```
 
@@ -266,7 +272,7 @@ Other changes:
 
 ## Open questions
 
-- [ ] **Package name.**
+- [x] **Package name.** `cosmograd`.
 - [ ] **One `Cosmology` class or one per parameter family?** The current lean is one class with component slots for perturbation work, plus small separate classes such as `FlatLCDM` for background-only use.
 - [ ] **Where `primordial_power_spectrum` lives.** It sits in `Perturbations` because only two protocols exist, yet only the fNL bias needs it. Tabulated or emulator-only implementations would have to accept an amplitude and tilt just to provide it.
 - [ ] **Neutrino mass.** It is a static setting in corrtracers today and an emulator input in bacco. Making it a traced field means the native background must handle it consistently with the emulator.

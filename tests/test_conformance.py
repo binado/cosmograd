@@ -39,4 +39,9 @@ def test_perturbations_conformance(
     perturbations_case: PerturbationsCase, layout: Layout
 ) -> None:
     k, z = layout(perturbations_case.k, perturbations_case.z)
-    check_perturbations(perturbations_case.cosmo, k, z)
+    check_perturbations(
+        perturbations_case.cosmo,
+        k,
+        z,
+        check_nonlinear=perturbations_case.supports_nonlinear,
+    )

@@ -123,6 +123,12 @@ class Perturbations(Protocol):
         Array
             :math:`P(k, z)` in :math:`\\mathrm{Mpc}^3`, with the broadcast
             shape of ``k`` and ``z``.
+
+        Raises
+        ------
+        NotImplementedError
+            Implementations without nonlinear power may raise this when
+            ``nonlinear=True``.
         """
         ...
 

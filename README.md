@@ -10,7 +10,7 @@ optional extras.
 ## Install
 
 ```console
-uv add cosmograd                       # core: protocols + native backgrounds
+uv add cosmograd                       # core: protocols + native backgrounds and linear power
 uv add 'cosmograd[cosmopower]'         # CosmoPower-JAX backend (planned)
 uv add 'cosmograd[bacco]'              # bacco emulator backend
 ```
@@ -28,6 +28,29 @@ z = jnp.linspace(0.1, 2.0, 20)
 cosmo.luminosity_distance(z)  # Mpc
 jax.jacfwd(lambda c: c.luminosity_distance(z))(cosmo)  # FlatLCDM-shaped Jacobian
 ```
+
+The native `EisensteinHu` backend provides linear matter power with EH98 baryon
+acoustic oscillations, normalised by the primordial amplitude:
+
+```python
+from cosmograd import EisensteinHu
+
+pert = EisensteinHu(cosmo, omega_b=0.0493, n_s=0.9649, ln10as=3.044)
+k = jnp.geomspace(1e-4, 1.0, 100)  # 1/Mpc
+pert.background is cosmo  # True
+pert.matter_power_spectrum(k, z[:, None])  # Mpc^3, shape (20, 100)
+pert.growth_function(z)  # normalised to 1 at z = 0
+jax.grad(lambda p: p.matter_power_spectrum(0.1, 0.5))(
+    pert
+)  # nested parameter gradients
+```
+
+Here `omega_b` is Ω_b today, with `0 < omega_b < cosmo.omega_m`, and `ln10as`
+is ln(10¹⁰ A_s) at the pivot 0.05/Mpc. Growth is scale independent and neglects
+radiation, with quadrature checked through z = 10; background distances retain
+radiation. Massive neutrinos are unsupported, and `nonlinear=True` raises
+`NotImplementedError`. For protocol checks on this backend, use
+`check_perturbations(pert, k, 0.5, check_nonlinear=False)`.
 
 With the `bacco` extra, `BaccoEmu` emulates linear and nonlinear matter power
 spectra (weights are downloaded on first use):
@@ -52,6 +75,31 @@ from cosmograd.testing import check_background
 
 check_background(MyBackground(...), z=jnp.linspace(0.0, 3.0, 50))
 ```
+
+## Calculation references
+
+The `EisensteinHu` calculations follow:
+
+- [Eisenstein & Hu (1998), *Baryonic Features in the Matter Transfer Function*](https://arxiv.org/abs/astro-ph/9709112),
+  equations (2)–(24): equality and drag scales, CDM and baryon contributions,
+  acoustic oscillations and Silk damping.
+- [Heath (1977)](https://doi.org/10.1093/mnras/179.3.351) and
+  [Hamilton (2001), *Formulae for growth factors*](https://arxiv.org/abs/astro-ph/0006089),
+  equations (1)–(2): the growing-mode integral for matter plus Λ. The code
+  evaluates it by quadrature with a′ = a u² and differentiates it analytically
+  for the growth rate. Matter-era growth satisfies D_md → a; the public growth
+  function is D(z) = D_md(z) / D_md(0).
+- [Smith & Angulo (2019), *Precision modelling of the matter power spectrum in a Planck-like Universe*](https://arxiv.org/abs/1807.00040),
+  equations (8) and (10): the primordial spectrum (with zero running) and its
+  conversion to matter power. Their a g corresponds to D_md here; using
+  today-normalised D instead would change the absolute power normalisation.
+- [Planck Collaboration (2020), *Planck 2018 results. VI. Cosmological parameters*](https://arxiv.org/abs/1807.06209),
+  section 2.1: the pivot k = 0.05/Mpc and ln(10¹⁰ A_s) parameter convention.
+
+The transfer implementation and frozen test values were adapted from
+[corrtracers revision 661c367](https://github.com/binado/corrtracers/tree/661c367c64b3f329dc431d303f9a62f2e80b0868).
+Equation references also appear beside the corresponding calculations in
+`src/cosmograd/perturbations/einstein_hu.py`.
 
 ## Setup
 

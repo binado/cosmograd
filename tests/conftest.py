@@ -9,7 +9,7 @@ import pytest
 from jax import Array
 from jaxtyping import Float
 
-from cosmograd import FlatLCDM, Perturbations
+from cosmograd import EisensteinHu, FlatLCDM, Perturbations
 from cosmograd.background import Background
 from cosmograd.perturbations.baccoemu import BaccoEmu
 from cosmograd.perturbations.cosmopower import CosmoPower
@@ -47,11 +47,26 @@ class PerturbationsCase(NamedTuple):
     k: Float[Array, " k"]
     """Wavenumbers in 1/Mpc, increasing."""
     z: Float[Array, " z"]
-    """Redshifts, increasing, valid for the nonlinear spectrum."""
+    """Redshifts, increasing, valid for the supported spectra."""
+    supports_nonlinear: bool = True
 
 
 @pytest.fixture(
     params=[
+        pytest.param(
+            PerturbationsCase(
+                EisensteinHu(
+                    FlatLCDM(H0=67.0, omega_m=0.31),
+                    omega_b=0.049,
+                    n_s=0.965,
+                    ln10as=3.044,
+                ),
+                k=jnp.geomspace(1e-4, 1.0, 7),
+                z=jnp.linspace(0.0, 10.0, 4),
+                supports_nonlinear=False,
+            ),
+            id="eisenstein-hu",
+        ),
         pytest.param(
             PerturbationsCase(
                 CosmoPower(

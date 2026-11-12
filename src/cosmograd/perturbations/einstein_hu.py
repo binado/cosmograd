@@ -1,8 +1,5 @@
 """Eisenstein–Hu (1998) linear power with baryon acoustic oscillations.
 
-Transfer fitting formula adapted from corrtracers revision
-661c367c64b3f329dc431d303f9a62f2e80b0868.
-
 References
 ----------
 .. [EH98] Eisenstein, D. J. & Hu, W. (1998), "Baryonic Features in the Matter

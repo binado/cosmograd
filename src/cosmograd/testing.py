@@ -135,7 +135,7 @@ def check_perturbations(
     *,
     rtol: float = 1e-6,
     growth_rate_rtol: float = 0.1,
-    check_nonlinear: bool = True,
+    linear_cosmo: Perturbations | None = None,
 ) -> None:
     """Check that ``cosmo`` honours the :class:`~cosmograd.Perturbations` contract.
 
@@ -150,12 +150,13 @@ def check_perturbations(
       from the growth methods without ``k``;
     - broadcasts ``k`` and ``z`` elementwise;
     - normalises the growth function to 1 at :math:`z = 0`;
-    - satisfies :math:`D^2(z, k) = P_\\mathrm{lin}(k, z) / P_\\mathrm{lin}(k, 0)`;
+    - when ``linear_cosmo`` is supplied, satisfies
+      :math:`D^2(z, k) = P_\\mathrm{lin}(k, z) / P_\\mathrm{lin}(k, 0)`;
     - returns a growth rate equal to :math:`\\mathrm{d}\\ln D / \\mathrm{d}\\ln a`,
       from a one-sided finite difference towards higher redshift;
     - gives the same results under :func:`jax.jit`;
     - has a finite :func:`jax.jacfwd` with respect to itself, shaped like
-      ``cosmo``, for the linear spectrum and, optionally, the nonlinear spectrum.
+      ``cosmo``, for its configured matter spectrum.
 
     Parameters
     ----------
@@ -175,8 +176,10 @@ def check_perturbations(
         convention (derivative in :math:`\\ln a`, sign), not accuracy:
         emulated growth functions are not smooth enough for a tight
         finite-difference comparison.
-    check_nonlinear : bool, default True
-        Also check nonlinear power. Set False for linear-only backends.
+    linear_cosmo : Perturbations, optional
+        Matching instance configured for linear power, used to check the
+        growth-to-power identity. May be ``cosmo`` itself for linear instances.
+        When omitted, this identity is not checked.
 
     Raises
     ------
@@ -192,20 +195,19 @@ def check_perturbations(
     assert isinstance(cosmo.background, Background), "background is not a Background"
     _check_leaves(cosmo)
 
-    for nonlinear in (False, True) if check_nonlinear else (False,):
-        pk = cosmo.matter_power_spectrum(k, z, nonlinear=nonlinear)
-        name = f"matter_power_spectrum(nonlinear={nonlinear})"
-        assert pk.shape == shape, f"{name} has shape {pk.shape}, expected {shape}"
-        assert jnp.all(jnp.isfinite(pk)), f"{name} returned non-finite values"
-        assert jnp.all(pk > 0), f"{name} returned non-positive values"
+    pk = cosmo.matter_power_spectrum(k, z)
+    name = "matter_power_spectrum"
+    assert pk.shape == shape, f"{name} has shape {pk.shape}, expected {shape}"
+    assert jnp.all(jnp.isfinite(pk)), f"{name} returned non-finite values"
+    assert jnp.all(pk > 0), f"{name} returned non-positive values"
 
-        k_b, z_b = jnp.broadcast_arrays(k, z)
-        np.testing.assert_allclose(
-            cosmo.matter_power_spectrum(k_b.ravel(), z_b.ravel(), nonlinear=nonlinear),
-            pk.ravel(),
-            rtol=rtol,
-            err_msg=f"{name} does not broadcast k and z elementwise",
-        )
+    k_b, z_b = jnp.broadcast_arrays(k, z)
+    np.testing.assert_allclose(
+        cosmo.matter_power_spectrum(k_b.ravel(), z_b.ravel()),
+        pk.ravel(),
+        rtol=rtol,
+        err_msg=f"{name} does not broadcast k and z elementwise",
+    )
 
     for name in ("growth_function", "growth_rate"):
         method = getattr(cosmo, name)
@@ -225,13 +227,15 @@ def check_perturbations(
         err_msg="growth_function is not 1 at z = 0",
     )
 
-    growth = cosmo.growth_function(z, k=k)
-    np.testing.assert_allclose(
-        growth**2,
-        cosmo.matter_power_spectrum(k, z) / cosmo.matter_power_spectrum(k, zero),
-        rtol=rtol,
-        err_msg="growth_function**2 is not the ratio of linear power spectra",
-    )
+    if linear_cosmo is not None:
+        growth = cosmo.growth_function(z, k=k)
+        np.testing.assert_allclose(
+            growth**2,
+            linear_cosmo.matter_power_spectrum(k, z)
+            / linear_cosmo.matter_power_spectrum(k, zero),
+            rtol=rtol,
+            err_msg="growth_function**2 is not the ratio of linear power spectra",
+        )
 
     # Second-order one-sided difference in ln a, stepping towards higher z so
     # that no redshift is negative.
@@ -255,21 +259,16 @@ def check_perturbations(
         "primordial_power_spectrum returned non-finite or non-positive values"
     )
 
-    for nonlinear in (False, True) if check_nonlinear else (False,):
-        np.testing.assert_allclose(
-            jax.jit(lambda c: c.matter_power_spectrum(k, z, nonlinear=nonlinear))(
-                cosmo
-            ),
-            cosmo.matter_power_spectrum(k, z, nonlinear=nonlinear),
-            rtol=rtol,
-            err_msg="matter_power_spectrum differs under jit",
-        )
+    np.testing.assert_allclose(
+        jax.jit(lambda c: c.matter_power_spectrum(k, z))(cosmo),
+        cosmo.matter_power_spectrum(k, z),
+        rtol=rtol,
+        err_msg="matter_power_spectrum differs under jit",
+    )
 
-        jac = jax.jacfwd(lambda c: c.matter_power_spectrum(k, z, nonlinear=nonlinear))(
-            cosmo
-        )
-        assert jax.tree_util.tree_structure(jac) == jax.tree_util.tree_structure(
-            cosmo
-        ), "the Jacobian is not shaped like the cosmology"
-        for leaf in jax.tree_util.tree_leaves(jac):
-            assert jnp.all(jnp.isfinite(leaf)), "the Jacobian has non-finite entries"
+    jac = jax.jacfwd(lambda c: c.matter_power_spectrum(k, z))(cosmo)
+    assert jax.tree_util.tree_structure(jac) == jax.tree_util.tree_structure(cosmo), (
+        "the Jacobian is not shaped like the cosmology"
+    )
+    for leaf in jax.tree_util.tree_leaves(jac):
+        assert jnp.all(jnp.isfinite(leaf)), "the Jacobian has non-finite entries"

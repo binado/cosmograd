@@ -19,7 +19,7 @@ References
    https://arxiv.org/abs/1807.06209
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import jax
 import jax.numpy as jnp
@@ -136,6 +136,8 @@ class EisensteinHu:
         Primordial scalar spectral index.
     ln10as : ArrayLike
         Natural logarithm of 10¹⁰ A_s, at the pivot k = 0.05/Mpc.
+    nonlinear : bool, default False
+        Nonlinear power is unsupported; True raises NotImplementedError. Static.
 
     Notes
     -----
@@ -157,6 +159,12 @@ class EisensteinHu:
     omega_b: Real[ArrayLike, "..."]
     n_s: Real[ArrayLike, "..."]
     ln10as: Real[ArrayLike, "..."]
+
+    nonlinear: bool = field(default=False, metadata={"static": True})
+
+    def __post_init__(self) -> None:
+        if self.nonlinear:
+            raise NotImplementedError("EisensteinHu supports linear power only")
 
     def _growth(
         self, z: Real[ArrayLike, "*shape"]
@@ -251,8 +259,6 @@ class EisensteinHu:
         self,
         k: Real[ArrayLike, "*#shape"],
         z: Real[ArrayLike, "*#shape"],
-        *,
-        nonlinear: bool = False,
     ) -> Float[Array, "*shape"]:
         """Return the primordial-amplitude-normalised linear matter spectrum.
 
@@ -262,8 +268,6 @@ class EisensteinHu:
             Positive wavenumber in 1/Mpc.
         z : ArrayLike
             Non-negative redshift; broadcasts elementwise against k.
-        nonlinear : bool, default False
-            Nonlinear power is unsupported.
 
         Returns
         -------
@@ -276,16 +280,9 @@ class EisensteinHu:
         gives P = (2π²/k³) P_R [2 k² T D_md / (5 Ω_m H0²)]².
         H0 is in inverse Mpc. The growth normalised to unity today cannot be
         substituted for D_md without changing the primordial normalisation.
-
-        Raises
-        ------
-        NotImplementedError
-            If nonlinear power is requested.
         """
         # Smith & Angulo (2019), equation (10), with c = 1 and a g = D_md.
         # D_md must retain its matter-era normalisation for the A_s conversion.
-        if nonlinear:
-            raise NotImplementedError("EisensteinHu supports linear power only")
         k = jnp.asarray(k)
         h2 = (jnp.asarray(self.background.H0) / 100) ** 2
         om = jnp.asarray(self.background.omega_m)

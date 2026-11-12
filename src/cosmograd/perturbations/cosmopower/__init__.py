@@ -81,7 +81,7 @@ def _log_modes(probe: str) -> np.ndarray:
 @partial(
     jax.tree_util.register_dataclass,
     data_fields=["h", "omega_m", "omega_b", "n_s", "ln10as", "c_min", "eta_0"],
-    meta_fields=["k_growth"],
+    meta_fields=["k_growth", "nonlinear"],
 )
 @dataclass(frozen=True)
 class CosmoPower(Perturbations):
@@ -99,8 +99,9 @@ class CosmoPower(Perturbations):
     differentiation. Without ``k`` both are evaluated at ``k_growth``, where
     the emulated growth is scale independent.
 
-    The instance is a pytree whose leaves are the parameter fields; ``k_growth``
-    is static. The emulator networks are module-level constants, never leaves.
+    The instance is a pytree whose leaves are the parameter fields;
+    ``k_growth`` and ``nonlinear`` are static. The emulator networks are
+    module-level constants, never leaves.
     Methods operate on one cosmology with scalar parameters; batch with
     :func:`jax.vmap`.
 
@@ -125,6 +126,9 @@ class CosmoPower(Perturbations):
     k_growth : float, default 0.01
         Wavenumber in 1/Mpc at which growth is evaluated when ``k`` is
         ``None``. Static.
+
+    nonlinear : bool, default False
+        Apply the HMcode boost to the matter power spectrum. Static.
 
     Notes
     -----
@@ -161,6 +165,7 @@ class CosmoPower(Perturbations):
     c_min: Real[ArrayLike, ...] = 3.13
     eta_0: Real[ArrayLike, ...] = 0.603
     k_growth: float = 0.01
+    nonlinear: bool = False
 
     @property
     def background(self) -> FlatLCDM:
@@ -256,8 +261,6 @@ class CosmoPower(Perturbations):
         self,
         k: Real[ArrayLike, "*#shape"],
         z: Real[ArrayLike, "*#shape"],
-        *,
-        nonlinear: bool = False,
     ) -> Float[Array, "*shape"]:
         """Matter power spectrum :math:`P(k, z)`.
 
@@ -267,8 +270,6 @@ class CosmoPower(Perturbations):
             Wavenumber in 1/Mpc, positive.
         z : ArrayLike
             Redshift in ``[0, 5]``. Broadcast elementwise against ``k``.
-        nonlinear : bool, default False
-            Apply the HMcode boost emulator.
 
         Returns
         -------
@@ -276,7 +277,7 @@ class CosmoPower(Perturbations):
             :math:`P(k, z)` in :math:`\\mathrm{Mpc}^3`, with the broadcast
             shape of ``k`` and ``z``.
         """
-        return jnp.exp(self._log_power(k, z, nonlinear))
+        return jnp.exp(self._log_power(k, z, self.nonlinear))
 
     def _growth_k(self, k: ArrayLike | None) -> Array:
         """Wavenumber to evaluate growth at, broadcast against ``z``."""

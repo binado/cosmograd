@@ -126,4 +126,4 @@ def test_parameter_gradients(eh: EisensteinHu) -> None:
 
 def test_nonlinear_rejected(eh: EisensteinHu) -> None:
     with pytest.raises(NotImplementedError, match="linear power only"):
-        eh.matter_power_spectrum(0.1, 0.0, nonlinear=True)
+        replace(eh, nonlinear=True)

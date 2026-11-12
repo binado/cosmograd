@@ -88,10 +88,11 @@ def bacco_kwargs(cosmo: BaccoEmu, z: float) -> dict[str, Any]:
 def test_power_spectrum_matches_baccoemu(
     cosmo: BaccoEmu, reference: Any, nonlinear: bool
 ) -> None:
+    cosmo = replace(cosmo, nonlinear=nonlinear)
     method = reference.get_nonlinear_pk if nonlinear else reference.get_linear_pk
     expected = [method(k=K_H, cold=cosmo.cold, **bacco_kwargs(cosmo, z))[1] for z in Z]
     h = cosmo.h
-    pk = cosmo.matter_power_spectrum(K_H * h, Z[:, None], nonlinear=nonlinear)
+    pk = cosmo.matter_power_spectrum(K_H * h, Z[:, None])
     np.testing.assert_allclose(pk * h**3, np.array(expected), rtol=RTOL)
 
 
@@ -100,8 +101,8 @@ def test_A_s_input_matches_sigma8_input(params: BaccoEmu, reference: Any) -> Non
     from_a_s = replace(params, sigma8_cold=None, A_s=a_s)
     k = K_H * params.h
     np.testing.assert_allclose(
-        from_a_s.matter_power_spectrum(k, 0.5, nonlinear=True),
-        params.matter_power_spectrum(k, 0.5, nonlinear=True),
+        replace(from_a_s, nonlinear=True).matter_power_spectrum(k, 0.5),
+        replace(params, nonlinear=True).matter_power_spectrum(k, 0.5),
         rtol=RTOL,
     )
 
@@ -144,7 +145,7 @@ def test_growth_function_massive_nu_is_scale_dependent() -> None:
 def test_nonlinear_power_spectrum_on_large_scales_is_linear(cosmo: BaccoEmu) -> None:
     k = np.geomspace(1e-4, 5e-3, 10) * cosmo.h
     np.testing.assert_allclose(
-        cosmo.matter_power_spectrum(k, 1.0, nonlinear=True),
+        replace(cosmo, nonlinear=True).matter_power_spectrum(k, 1.0),
         cosmo.matter_power_spectrum(k, 1.0),
     )
 
@@ -162,10 +163,11 @@ def test_power_spectrum_broadcasts_elementwise(
     k_shape: tuple[int, ...], z_shape: tuple[int, ...], nonlinear: bool
 ) -> None:
     k, z = _grid(k_shape, 0.01, 2.0), _grid(z_shape, 0.2, 1.2)
-    pk = NU_W0WA.matter_power_spectrum(k, z, nonlinear=nonlinear)
+    cosmo = replace(NU_W0WA, nonlinear=nonlinear)
+    pk = cosmo.matter_power_spectrum(k, z)
     k_b, z_b = np.broadcast_arrays(k, z)
     expected = [
-        NU_W0WA.matter_power_spectrum(ki, zi, nonlinear=nonlinear)
+        cosmo.matter_power_spectrum(ki, zi)
         for ki, zi in zip(k_b.ravel(), z_b.ravel(), strict=True)
     ]
     assert pk.shape == k_b.shape
@@ -196,12 +198,13 @@ def test_pytree_leaves_are_the_given_parameters() -> None:
     np.testing.assert_array_equal(leaves, [getattr(NU_W0WA, p) for p in PARAMETERS])
 
 
-def test_jit_vmap_over_cosmologies_matches_loop() -> None:
-    cosmos = [LCDM, NU_W0WA, HEAVY_NU]
+@pytest.mark.parametrize("nonlinear", [False, True], ids=["linear", "nonlinear"])
+def test_jit_vmap_over_cosmologies_matches_loop(nonlinear: bool) -> None:
+    cosmos = [replace(c, nonlinear=nonlinear) for c in [LCDM, NU_W0WA, HEAVY_NU]]
     batch = jax.tree.map(lambda *xs: jnp.array(xs), *cosmos)
     k = jnp.geomspace(0.01, 3.0, 20)
-    fn = jax.jit(jax.vmap(lambda c: c.matter_power_spectrum(k, 0.7, nonlinear=True)))
-    expected = [c.matter_power_spectrum(k, 0.7, nonlinear=True) for c in cosmos]
+    fn = jax.jit(jax.vmap(lambda c: c.matter_power_spectrum(k, 0.7)))
+    expected = [c.matter_power_spectrum(k, 0.7) for c in cosmos]
     np.testing.assert_allclose(fn(batch), np.array(expected), rtol=1e-10)
 
 
@@ -210,29 +213,31 @@ def test_gradient_matches_finite_differences(name: str) -> None:
     k = jnp.geomspace(0.02, 3.0, 30)
     z = jnp.array([0.3, 1.1])[:, None]
 
-    def log_pk(c: BaccoEmu) -> jax.Array:
-        return jnp.log(c.matter_power_spectrum(k, z, nonlinear=True))
+    cosmo = replace(NU_W0WA, nonlinear=True)
 
-    grad = getattr(jax.jacfwd(log_pk)(NU_W0WA), name)
+    def log_pk(c: BaccoEmu) -> jax.Array:
+        return jnp.log(c.matter_power_spectrum(k, z))
+
+    grad = getattr(jax.jacfwd(log_pk)(cosmo), name)
     step = 1e-6
     x0 = getattr(NU_W0WA, name)
     fd = (
-        log_pk(replace(NU_W0WA, **{name: x0 + step}))
-        - log_pk(replace(NU_W0WA, **{name: x0 - step}))
+        log_pk(replace(cosmo, **{name: x0 + step}))
+        - log_pk(replace(cosmo, **{name: x0 - step}))
     ) / (2 * step)
     np.testing.assert_allclose(grad, fd, rtol=1e-3, atol=1e-3 * np.max(np.abs(fd)))
 
 
 def test_check_bounds_inside_range_passes() -> None:
-    LCDM.check_bounds(K_H * LCDM.h, Z)
-    LCDM.check_bounds(z=2.0, nonlinear=False)
+    replace(LCDM, nonlinear=True).check_bounds(K_H * LCDM.h, Z)
+    LCDM.check_bounds(z=2.0)
 
 
 @pytest.mark.parametrize(
     ("cosmo", "k", "z", "match"),
     [
         (replace(LCDM, omega_cold=0.5), None, 0.0, "omega_cold"),
-        (LCDM, None, 2.0, "expfactor"),
+        (replace(LCDM, nonlinear=True), None, 2.0, "expfactor"),
         (LCDM, 10.0, 0.0, "k/h"),
         (LCDM, 1e-6, 0.0, "k/h"),
     ],

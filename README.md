@@ -48,21 +48,30 @@ jax.grad(lambda p: p.matter_power_spectrum(0.1, 0.5))(
 Here `omega_b` is Ω_b today, with `0 < omega_b < cosmo.omega_m`, and `ln10as`
 is ln(10¹⁰ A_s) at the pivot 0.05/Mpc. Growth is scale independent and neglects
 radiation, with quadrature checked through z = 10; background distances retain
-radiation. Massive neutrinos are unsupported, and `nonlinear=True` raises
-`NotImplementedError`. For protocol checks on this backend, use
-`check_perturbations(pert, k, 0.5, check_nonlinear=False)`.
+radiation. Massive neutrinos are unsupported, and constructing with
+`nonlinear=True` raises `NotImplementedError`. For protocol checks on this
+backend, use
+`check_perturbations(pert, k, 0.5, linear_cosmo=pert)`.
 
 With the `bacco` extra, `BaccoEmu` emulates linear and nonlinear matter power
-spectra (weights are downloaded on first use):
+spectra (weights are downloaded on first use). Select the spectrum with the
+constructor's `nonlinear` option, which defaults to `False` for every backend:
 
 ```python
 from cosmograd.perturbations.baccoemu import BaccoEmu
 
-pert = BaccoEmu(h=0.67, omega_cold=0.315, omega_baryon=0.05, ns=0.96, sigma8_cold=0.8)
+pert = BaccoEmu(
+    h=0.67,
+    omega_cold=0.315,
+    omega_baryon=0.05,
+    ns=0.96,
+    sigma8_cold=0.8,
+    nonlinear=True,
+)
 k = jnp.geomspace(1e-3, 3.0, 100)  # 1/Mpc
 z = jnp.linspace(0.0, 1.5, 16)
 pert.check_bounds(k, z)  # eager check of the training ranges
-pert.matter_power_spectrum(k, z[:, None], nonlinear=True)  # Mpc^3, shape (16, 100)
+pert.matter_power_spectrum(k, z[:, None])  # Mpc^3, shape (16, 100)
 ```
 
 Units: distances in Mpc, wavenumbers in 1/Mpc, H in 1/Mpc (c = 1), power spectra

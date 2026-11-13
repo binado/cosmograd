@@ -12,7 +12,6 @@ from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
 from ...background import FlatLCDM, FlatW0WaCDM
-from .._params import require
 from ._emulator import (
     LINEAR_KEYS,
     NONLINEAR_KEYS,
@@ -76,12 +75,11 @@ class BaccoEmu:
         ``hubble = H0 / 100``, ``omega_baryon = omega_b``, ``ns = n_s``,
         its ``w0`` and ``wa``, and
         :math:`\\Omega_{cb} = \\Omega_m - \\Omega_\\nu`: ``omega_m`` is the
-        total matter density, including massive neutrinos. ``omega_b`` and
-        ``n_s`` must be set; methods raise :class:`ValueError` otherwise.
+        total matter density, including massive neutrinos.
     sigma8_cold : ArrayLike, optional
         RMS linear cold-matter fluctuation in spheres of 8 Mpc/h at
         :math:`z = 0`. When given it sets the amplitude and the cosmology's
-        ``ln10as`` is ignored; otherwise ``ln10as`` is required.
+        ``ln10as`` is ignored; otherwise ``ln10as`` sets it.
     neutrino_mass : ArrayLike, default 0.0
         Sum of the neutrino masses in eV,
         :math:`\\Omega_\\nu h^2 = M_\\nu / 93.14`.
@@ -140,7 +138,6 @@ class BaccoEmu:
     def _bacco_params(self, z: Real[ArrayLike, ""]) -> dict[str, Float[Array, ""]]:
         """Parameters keyed by ``baccoemu`` name, at one redshift."""
         cosmo = self.background
-        require(cosmo, "omega_b", "n_s")
         h = self._h
         neutrino_mass = _float(self.neutrino_mass)
         p = {
@@ -154,10 +151,8 @@ class BaccoEmu:
         }
         if self.sigma8_cold is not None:
             amplitude = {"sigma8_cold": _float(self.sigma8_cold)}
-        elif cosmo.ln10as is not None:
-            amplitude = {"A_s": 1e-10 * jnp.exp(_float(cosmo.ln10as))}
         else:
-            raise ValueError("Set 'ln10as' on the cosmology or give 'sigma8_cold'.")
+            amplitude = {"A_s": 1e-10 * jnp.exp(_float(cosmo.ln10as))}
         p["A_s"], p["sigma8_cold"] = amplitudes(self._emulator, p | amplitude)
         p["expfactor"] = 1 / (1 + jnp.asarray(z, dtype=float))
         return p

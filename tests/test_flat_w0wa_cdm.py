@@ -27,7 +27,15 @@ def cosmo(request: pytest.FixtureRequest) -> FlatW0WaCDM:
 
 def test_leaves_are_parameters(cosmo: FlatW0WaCDM) -> None:
     leaves = jax.tree_util.tree_leaves(cosmo)
-    assert leaves == [H0, OMEGA_M, cosmo.w0, cosmo.wa]
+    assert leaves == [
+        H0,
+        OMEGA_M,
+        cosmo.w0,
+        cosmo.wa,
+        cosmo.omega_b,
+        cosmo.n_s,
+        cosmo.ln10as,
+    ]
 
 
 @pytest.mark.parametrize("name", ["H0", "omega_m", "w0", "wa"])

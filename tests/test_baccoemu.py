@@ -241,7 +241,9 @@ def test_growth_function_matches_ode_on_background(w0: float, wa: float) -> None
 
 def test_pytree_leaves_are_the_given_parameters() -> None:
     leaves = jax.tree_util.tree_leaves(NU_W0WA)
-    expected = [getattr(NU_W0WA.background, p) for p in COSMOLOGY_PARAMETERS]
+    expected = [
+        getattr(NU_W0WA.background, p) for p in (*COSMOLOGY_PARAMETERS, "ln10as")
+    ]
     expected += [getattr(NU_W0WA, p) for p in BACKEND_PARAMETERS]
     np.testing.assert_array_equal(leaves, expected)
 
@@ -307,11 +309,6 @@ def test_check_bounds_outside_range_raises(
 ) -> None:
     with pytest.raises(ValueError, match=match):
         cosmo.check_bounds(k, z)
-
-
-def test_no_amplitude_raises() -> None:
-    with pytest.raises(ValueError, match="ln10as"):
-        replace(LCDM, sigma8_cold=None).matter_power_spectrum(0.1, 0.0)
 
 
 def test_sigma8_cold_overrides_ln10as() -> None:

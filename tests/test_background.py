@@ -45,7 +45,7 @@ def test_inverse_parameter_gradient(cosmo: FlatLCDM, name: str, z: float) -> Non
 
 def test_leaves_are_parameters(cosmo: FlatLCDM) -> None:
     leaves = jax.tree_util.tree_leaves(cosmo)
-    assert leaves == [H0, OMEGA_M]
+    assert leaves == [H0, OMEGA_M, cosmo.omega_b, cosmo.n_s, cosmo.ln10as]
 
 
 @pytest.mark.parametrize("name", ["H0", "omega_m"])
@@ -66,7 +66,7 @@ def test_distance_redshift_derivative(cosmo: FlatLCDM) -> None:
 
 
 def test_vmap_over_cosmologies() -> None:
-    batch = FlatLCDM(H0=jnp.array([60.0, 70.0]), omega_m=jnp.array([0.3, 0.3]))
+    batch = jax.vmap(lambda h0: FlatLCDM(H0=h0, omega_m=0.3))(jnp.array([60.0, 70.0]))
     chi = jax.vmap(lambda c: c.comoving_distance(1.0))(batch)
     assert chi.shape == (2,)
     # Larger H0 means a shorter distance in Mpc.

@@ -53,9 +53,11 @@ cosmo = W0WaCDM(H0=67.36, omega_m=0.3153, omega_k=0.02)
 cosmo.luminosity_distance(z)
 ```
 
-Every class also takes the optional `omega_b`, `n_s` and `ln10as`, so that one
-object holds the whole cosmology. No background method reads them, and left
-unset they are not part of the pytree. Standard cosmologies carry them:
+Every class also takes `omega_b`, `n_s` and `ln10as`, so that one object holds
+the whole cosmology. No background method reads them. They default to the
+Planck 2018 values (0.04897, 0.9665 and 3.047), which the perturbation backends
+then use without warning, so set them whenever you compute spectra. Standard
+cosmologies carry their own:
 
 ```python
 from cosmograd.cosmologies import Planck18
@@ -67,9 +69,8 @@ Planck18.with_parameters(omega_m=0.30)  # a modified copy
 Here `omega_b` is $\Omega_b$ today, with `0 < omega_b < omega_m`, and `ln10as` is
 $\ln(10^{10} A_s)$ at the pivot $0.05\,\mathrm{Mpc}^{-1}$.
 
-The perturbation backends below take such a cosmology plus their own settings,
-and raise `ValueError` when a spectrum needs a parameter that is unset. They
-assume a flat universe: `EisensteinHu` and `BaccoEmu` accept either flat class;
+The perturbation backends below take such a cosmology plus their own settings.
+They assume a flat universe: `EisensteinHu` and `BaccoEmu` accept either flat class;
 `CosmoPower` is trained on $\Lambda\mathrm{CDM}$ and takes a `FlatLCDM` only.
 
 The native `EisensteinHu` backend provides linear matter power with EH98 baryon

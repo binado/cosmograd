@@ -149,6 +149,28 @@ The underlying command is `uv sync --all-groups` if Just is unavailable.
 
 ## Development
 
+### Spectrum comparison notebook
+
+Install the notebook dependencies with `uv sync --group notebook`, then open
+[`notebooks/perturbation_benchmark.py`](notebooks/perturbation_benchmark.py) in a
+notebook editor that supports Jupytext `py:percent` scripts (for example, VS Code's
+Python Interactive window). Select the repository's `.venv` kernel and run all
+cells. The first code cell contains imports; the second holds all editable
+settings and enables Retina figures. First use may download emulator weights
+and requires internet access.
+The notebook compares linear and nonlinear spectra against CAMB at a shared
+primordial amplitude; it does not benchmark runtime.
+
+Only the percent script is maintained. To execute a temporary notebook from the
+repository root:
+
+```console
+uv run --group notebook jupytext --to ipynb notebooks/perturbation_benchmark.py -o /tmp/perturbation_benchmark.ipynb
+uv run --group notebook jupyter nbconvert --to notebook --execute /tmp/perturbation_benchmark.ipynb --output /tmp/perturbation_benchmark.executed.ipynb --ExecutePreprocessor.timeout=600
+```
+
+### Repository checks
+
 ```console
 just fmt        # uv run ruff check --fix . && uv run ruff format .
 just lint       # uv run ruff check .

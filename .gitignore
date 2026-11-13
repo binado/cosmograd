@@ -14,3 +14,5 @@ dist/
 
 # Local design notes
 /docs/design.md
+# Generated Jupyter notebooks; maintain the paired py:percent source instead.
+*.ipynb

@@ -145,7 +145,8 @@ class EisensteinHu:
     Massive neutrinos and nonlinear power are unsupported. Inputs are not
     validated: wavenumbers must be positive and redshifts non-negative;
     neither needs to be sorted. Growth is supported only through z = 999,
-    the initial redshift of the ODE.
+    the initial redshift of the ODE (``1/a_initial - 1`` for the default
+    ``a_initial``); larger or negative redshifts return NaN.
 
     Only the background parameters and three spectral parameters are pytree
     leaves. Fields may hold batched parameters or Jacobians; evaluate one

@@ -49,8 +49,8 @@ Here `omega_b` is Ω_b today, with `0 < omega_b < cosmo.omega_m`, and `ln10as`
 is ln(10¹⁰ A_s) at the pivot 0.05/Mpc. Growth is scale independent and neglects
 radiation, using a Diffrax ODE initialized with D = a at a = 0.001 and checked
 through z = 10; background distances retain radiation. Massive neutrinos are
-unsupported, and constructing with `nonlinear=True` raises `NotImplementedError`. For protocol checks on this
-backend, use
+unsupported, and constructing with `nonlinear=True` raises
+`NotImplementedError`. For protocol checks on this backend, use
 `check_perturbations(pert, k, 0.5, linear_cosmo=pert)`.
 
 The reusable growth solver accepts any differentiable `Background`:
@@ -66,10 +66,15 @@ D_md, f = linear_growth(growth_background, z, normalize=False)  # initial D = a
 
 The solver uses the supplied H(z) and Ω_m(z), supporting curvature and smooth
 dark energy within GR and scale-independent, subhorizon growth. Set
-`a_initial` inside matter domination and check sensitivity to this choice;
-its default of 0.001 assumes radiation is negligible. Backgrounds with
-radiation may need a later start. Redshifts must lie between 0 and
-`1/a_initial - 1`, and may have any shape or order. Both forward- and
+`a_initial` inside matter domination and check sensitivity to this choice.
+The default of 0.001 (z = 999) is appropriate only for radiation-free
+backgrounds (`t_cmb=0`); with radiation, D and f shift by roughly 1e-4 to 1e-3
+at the default, which `rtol` does not control. Such backgrounds need a larger
+`a_initial`, late enough for radiation to be negligible but early enough that
+dark energy and curvature still are. Redshifts must lie between 0 and
+`1/a_initial - 1`, outside which the result is NaN, and may have any shape or
+order. Solver failures, such as exceeding `max_steps`, raise an error. Both
+forward- and
 reverse-mode parameter derivatives are supported. EH keeps its `FlatLCDM`
 transfer-function inputs and supplies a radiation-free expansion to this solver.
 
@@ -115,10 +120,11 @@ The `EisensteinHu` calculations follow:
 - [Heath (1977)](https://doi.org/10.1093/mnras/179.3.351) and
   [Hamilton (2001), *Formulae for growth factors*](https://arxiv.org/abs/astro-ph/0006089),
   equations (1)–(2): the growing-mode integral for matter plus Λ, used as an
-  independent reference in the ODE tests. The Diffrax solver evolves
-  D″ + [2 + (ln H)′] D′ − (3/2) Ω_m D = 0 in ln a. Matter-era growth
-  starts with D_md = a and D_md′ = a; the public growth function is
-  D(z) = D_md(z) / D_md(0).
+  independent reference in the ODE tests. The Diffrax solver integrates the
+  equivalent Sturm–Liouville form (a² E D′)′ = (3/2) a² E Ω_m D in ln a, using
+  the variables described in the `linear_growth` notes, so H is never
+  differentiated. Matter-era growth starts with D_md = a and D_md′ = a; the
+  public growth function is D(z) = D_md(z) / D_md(0).
 - [Smith & Angulo (2019), *Precision modelling of the matter power spectrum in a Planck-like Universe*](https://arxiv.org/abs/1807.00040),
   equations (8) and (10): the primordial spectrum (with zero running) and its
   conversion to matter power. Their a g corresponds to D_md here; using

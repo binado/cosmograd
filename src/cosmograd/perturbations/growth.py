@@ -49,7 +49,11 @@ def linear_growth(
     a_initial : float, default 0.001
         Initial scale factor, in (0, 1). Must lie in matter domination, with
         negligible radiation, curvature and dark energy. Initial conditions
-        are D = a and dD/d ln a = a. Static under JAX transformations.
+        are D = a and dD/d ln a = a. Static under JAX transformations. The
+        default (z = 999) is appropriate only for radiation-free backgrounds
+        (``t_cmb=0``); backgrounds with radiation need a larger value, bounded
+        above by the requirement that dark energy and curvature stay
+        negligible.
     rtol, atol : float, optional
         Relative and absolute tolerances for the state
         (D/a, a^(1/2) (H/H_0) dD/d ln a). Defaults are max(1e-8, 10 eps) and
@@ -117,12 +121,16 @@ def linear_growth(
     Radiation in the supplied H(a) is included, but the matter-era initial
     conditions are inappropriate during radiation domination. Choose
     a_initial within matter domination and check sensitivity to that choice;
-    solver tolerances do not control the initial-condition approximation.
+    solver tolerances do not control the initial-condition approximation. For
+    a default flat LCDM background with radiation, using the default
+    a_initial shifts D and f by roughly 1e-4 to 1e-3.
 
     A single Tsit5 solve runs from ln(a_initial) to today. Dense output handles
     unsorted, repeated and multidimensional redshifts without extra solves.
     DirectAdjoint supports both forward- and reverse-mode differentiation.
-    No inputs are validated, and out-of-range redshifts are unsupported.
+    No inputs are validated. Redshifts outside [0, 1/a_initial - 1] return NaN.
+    Solver failures, such as exceeding ``max_steps``, raise an error; under
+    :func:`jax.jit` this surfaces as a runtime error from an Equinox callback.
     """
     z = jnp.asarray(z, dtype=float)
     eps = float(jnp.finfo(z.dtype).eps)
@@ -145,6 +153,7 @@ def linear_growth(
         saveat=diffrax.SaveAt(dense=True),
         adjoint=diffrax.DirectAdjoint(),
         max_steps=max_steps,
+        throw=True,
     )
     x = -jnp.log1p(z)
     values = jax.vmap(solution.evaluate)(x.reshape(-1)).reshape(*z.shape, 2)

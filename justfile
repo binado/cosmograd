@@ -21,7 +21,7 @@ typecheck:
     uv run ty check
 
 test *args:
-    uv run pytest {{args}}
+    uv run pytest -n auto {{args}}
 
 hooks:
     uv run prek run --all-files

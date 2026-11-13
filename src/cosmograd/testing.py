@@ -135,7 +135,6 @@ def check_perturbations(
     *,
     rtol: float = 1e-6,
     growth_rate_rtol: float = 0.1,
-    linear_cosmo: Perturbations | None = None,
 ) -> None:
     """Check that ``cosmo`` honours the :class:`~cosmograd.Perturbations` contract.
 
@@ -148,9 +147,9 @@ def check_perturbations(
     - returns finite arrays with the broadcast shape of ``k`` and ``z`` from
       every method, positive for the power spectra, and the shape of ``z``
       from the growth methods without ``k``;
-    - broadcasts ``k`` and ``z`` elementwise;
+    - broadcasts ``k`` and ``z`` elementwise in both power spectra;
     - normalises the growth function to 1 at :math:`z = 0`;
-    - when ``linear_cosmo`` is supplied, satisfies
+    - satisfies
       :math:`D^2(z, k) = P_\\mathrm{lin}(k, z) / P_\\mathrm{lin}(k, 0)`;
     - returns a growth rate equal to :math:`\\mathrm{d}\\ln D / \\mathrm{d}\\ln a`,
       from a one-sided finite difference towards higher redshift;
@@ -176,11 +175,6 @@ def check_perturbations(
         convention (derivative in :math:`\\ln a`, sign), not accuracy:
         emulated growth functions are not smooth enough for a tight
         finite-difference comparison.
-    linear_cosmo : Perturbations, optional
-        Matching instance configured for linear power, used to check the
-        growth-to-power identity. May be ``cosmo`` itself for linear instances.
-        When omitted, this identity is not checked.
-
     Raises
     ------
     AssertionError
@@ -195,19 +189,19 @@ def check_perturbations(
     assert isinstance(cosmo.background, Background), "background is not a Background"
     _check_leaves(cosmo)
 
-    pk = cosmo.matter_power_spectrum(k, z)
-    name = "matter_power_spectrum"
-    assert pk.shape == shape, f"{name} has shape {pk.shape}, expected {shape}"
-    assert jnp.all(jnp.isfinite(pk)), f"{name} returned non-finite values"
-    assert jnp.all(pk > 0), f"{name} returned non-positive values"
-
     k_b, z_b = jnp.broadcast_arrays(k, z)
-    np.testing.assert_allclose(
-        cosmo.matter_power_spectrum(k_b.ravel(), z_b.ravel()),
-        pk.ravel(),
-        rtol=rtol,
-        err_msg=f"{name} does not broadcast k and z elementwise",
-    )
+    for name in ("matter_power_spectrum", "linear_matter_power_spectrum"):
+        method = getattr(cosmo, name)
+        pk = method(k, z)
+        assert pk.shape == shape, f"{name} has shape {pk.shape}, expected {shape}"
+        assert jnp.all(jnp.isfinite(pk)), f"{name} returned non-finite values"
+        assert jnp.all(pk > 0), f"{name} returned non-positive values"
+        np.testing.assert_allclose(
+            method(k_b.ravel(), z_b.ravel()),
+            pk.ravel(),
+            rtol=rtol,
+            err_msg=f"{name} does not broadcast k and z elementwise",
+        )
 
     for name in ("growth_function", "growth_rate"):
         method = getattr(cosmo, name)
@@ -227,15 +221,13 @@ def check_perturbations(
         err_msg="growth_function is not 1 at z = 0",
     )
 
-    if linear_cosmo is not None:
-        growth = cosmo.growth_function(z, k=k)
-        np.testing.assert_allclose(
-            growth**2,
-            linear_cosmo.matter_power_spectrum(k, z)
-            / linear_cosmo.matter_power_spectrum(k, zero),
-            rtol=rtol,
-            err_msg="growth_function**2 is not the ratio of linear power spectra",
-        )
+    np.testing.assert_allclose(
+        cosmo.growth_function(z, k=k) ** 2,
+        cosmo.linear_matter_power_spectrum(k, z)
+        / cosmo.linear_matter_power_spectrum(k, zero),
+        rtol=rtol,
+        err_msg="growth_function**2 is not the ratio of linear power spectra",
+    )
 
     # Second-order one-sided difference in ln a, stepping towards higher z so
     # that no redshift is negative.

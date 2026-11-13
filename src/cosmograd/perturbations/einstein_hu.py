@@ -236,6 +236,27 @@ class EisensteinHu:
         k: Real[ArrayLike, "*#shape"],
         z: Real[ArrayLike, "*#shape"],
     ) -> Float[Array, "*shape"]:
+        """Return the linear matter spectrum; nonlinear power is unsupported.
+
+        Parameters
+        ----------
+        k : ArrayLike
+            Positive wavenumber in 1/Mpc.
+        z : ArrayLike
+            Non-negative redshift; broadcasts elementwise against k.
+
+        Returns
+        -------
+        Array
+            :meth:`linear_matter_power_spectrum`, in Mpc³.
+        """
+        return self.linear_matter_power_spectrum(k, z)
+
+    def linear_matter_power_spectrum(
+        self,
+        k: Real[ArrayLike, "*#shape"],
+        z: Real[ArrayLike, "*#shape"],
+    ) -> Float[Array, "*shape"]:
         """Return the primordial-amplitude-normalised linear matter spectrum.
 
         Parameters

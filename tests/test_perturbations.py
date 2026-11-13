@@ -48,6 +48,17 @@ def test_growth_is_independent_of_nonlinear_mode(
     )
 
 
+def test_linear_power_is_independent_of_nonlinear_mode(
+    perturbations_case: PerturbationsCase,
+) -> None:
+    linear = replace(perturbations_case.cosmo, nonlinear=False)
+    k, z = perturbations_case.k[:, None], perturbations_case.z
+    np.testing.assert_allclose(
+        perturbations_case.cosmo.linear_matter_power_spectrum(k, z),
+        linear.matter_power_spectrum(k, z),
+    )
+
+
 def test_nonlinear_mode_is_static(perturbations_case: PerturbationsCase) -> None:
     if not perturbations_case.supports_nonlinear:
         pytest.skip("backend supports linear power only")

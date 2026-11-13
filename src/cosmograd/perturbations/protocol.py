@@ -37,7 +37,12 @@ class Perturbations(Protocol):
 
     @property
     def background(self) -> Background:
-        """The background this object's perturbations evolve on.
+        """The background to use for distances alongside these perturbations.
+
+        It need not be the exact expansion history behind the spectra: an
+        emulator fixes its own, and an implementation may leave out components
+        its background class cannot represent. Each implementation documents
+        how the two relate.
 
         Returns
         -------
@@ -54,7 +59,8 @@ class Perturbations(Protocol):
     ) -> Float[Array, "*shape"]:
         """Linear growth function :math:`D`, normalised to 1 at :math:`z = 0`.
 
-        With scale dependence it is defined through the linear spectrum,
+        With scale dependence it is defined through
+        :meth:`linear_matter_power_spectrum`,
 
         .. math::
 
@@ -108,6 +114,7 @@ class Perturbations(Protocol):
         """Matter power spectrum :math:`P(k, z)`.
 
         Linear or nonlinear power is selected when constructing the instance.
+        :meth:`linear_matter_power_spectrum` is linear either way.
 
         Parameters
         ----------
@@ -121,6 +128,32 @@ class Perturbations(Protocol):
         Array
             :math:`P(k, z)` in :math:`\\mathrm{Mpc}^3`, with the broadcast
             shape of ``k`` and ``z``.
+        """
+        ...
+
+    def linear_matter_power_spectrum(
+        self,
+        k: Real[ArrayLike, "*#shape"],
+        z: Real[ArrayLike, "*#shape"],
+    ) -> Float[Array, "*shape"]:
+        """Linear matter power spectrum :math:`P_\\mathrm{lin}(k, z)`.
+
+        Independent of whether the instance was constructed for linear or
+        nonlinear power. It is the spectrum that defines
+        :meth:`growth_function`.
+
+        Parameters
+        ----------
+        k : ArrayLike
+            Wavenumber in 1/Mpc (never h/Mpc), positive.
+        z : ArrayLike
+            Redshift, non-negative. Broadcast elementwise against ``k``.
+
+        Returns
+        -------
+        Array
+            :math:`P_\\mathrm{lin}(k, z)` in :math:`\\mathrm{Mpc}^3`, with the
+            broadcast shape of ``k`` and ``z``.
         """
         ...
 

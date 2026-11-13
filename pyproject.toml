@@ -56,21 +56,29 @@ notebook = [
     "jupytext>=1.17",
     "nbconvert>=7.16",
 ]
+ref = [
+    "camb>=1.6.5",
+    "cloelib>=0.11",
+    "jax-cosmo>=0.1.0",
+    # jax-cosmo imports pkg_resources, which setuptools 82 removed.
+    "setuptools<81",
+]
 dev = [
     "cosmograd[bacco,cosmopower]",
     "prek>=0.5.3",
     "ruff>=0.16.0",
     "ty>=0.0.83",
     { include-group = "test" },
+    { include-group = "ref" },
 ]
 test = [
-    "astropy>=8.0.2",
     "beartype>=0.23.1",
     "pytest>=9.1.1",
 ]
 
 [tool.pytest.ini_options]
 addopts = "-ra --jaxtyping-packages=cosmograd,tests.typecheck"
+markers = ["slow: comparisons against Boltzmann codes or emulators (deselect with -m 'not slow')"]
 testpaths = ["tests"]
 
 [tool.ruff]

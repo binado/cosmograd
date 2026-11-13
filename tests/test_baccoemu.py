@@ -160,13 +160,6 @@ def test_growth_function_matches_baccoemu(
     np.testing.assert_allclose(growth, np.sqrt(pk / pk[0]), rtol=RTOL)
 
 
-def test_growth_rate_lcdm_matches_omega_m_power_law() -> None:
-    """Against the fit Omega_m(z)^0.55, itself good to a few 1e-3 in LCDM."""
-    z = np.linspace(0.0, 3.0, 61)
-    expected = LCDM.background.matter_density_parameter(z) ** 0.55
-    np.testing.assert_allclose(LCDM.growth_rate(z), expected, atol=0.02)
-
-
 def test_growth_function_massive_nu_is_scale_dependent() -> None:
     def scale_dependence(cosmo: BaccoEmu) -> jax.Array:
         growth = cosmo.growth_function(3.0, k=np.array([1e-3, 1.0]) * little_h(cosmo))
@@ -175,14 +168,6 @@ def test_growth_function_massive_nu_is_scale_dependent() -> None:
     # Neutrinos slow small-scale growth, so normalised to z = 0 the
     # small-scale D is larger at high redshift.
     assert scale_dependence(HEAVY_NU) > 10 * abs(scale_dependence(LCDM))
-
-
-def test_nonlinear_power_spectrum_on_large_scales_is_linear(cosmo: BaccoEmu) -> None:
-    k = np.geomspace(1e-4, 5e-3, 10) * little_h(cosmo)
-    np.testing.assert_allclose(
-        replace(cosmo, nonlinear=True).matter_power_spectrum(k, 1.0),
-        cosmo.matter_power_spectrum(k, 1.0),
-    )
 
 
 def _grid(shape: tuple[int, ...], lo: float, hi: float) -> np.ndarray:

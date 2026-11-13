@@ -339,6 +339,7 @@ cosmopower = [
 dev = [
     { name = "astropy" },
     { name = "beartype" },
+    { name = "cosmograd", extra = ["bacco", "cosmopower"] },
     { name = "prek" },
     { name = "pytest" },
     { name = "ruff" },
@@ -365,6 +366,7 @@ provides-extras = ["cosmopower", "bacco"]
 dev = [
     { name = "astropy", specifier = ">=8.0.2" },
     { name = "beartype", specifier = ">=0.23.1" },
+    { name = "cosmograd", extras = ["bacco", "cosmopower"], editable = "." },
     { name = "prek", specifier = ">=0.5.3" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.16.0" },

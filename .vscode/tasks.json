@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Jupytext: Convert Python to Notebook",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "--group",
+        "notebook",
+        "jupytext",
+        "--to",
+        "ipynb",
+        "${file}"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

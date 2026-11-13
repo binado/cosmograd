@@ -48,6 +48,14 @@ requires = ["uv_build>=0.12.18,<0.13"]
 build-backend = "uv_build"
 
 [dependency-groups]
+notebook = [
+    "cosmograd[bacco,cosmopower]",
+    "camb>=1.6.5",
+    "matplotlib>=3.10",
+    "ipykernel>=6.30",
+    "jupytext>=1.17",
+    "nbconvert>=7.16",
+]
 dev = [
     "cosmograd[bacco,cosmopower]",
     "prek>=0.5.3",

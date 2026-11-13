@@ -115,6 +115,16 @@ _CASES: tuple[CosmologyCase, ...] = (
         3.047,
         flat=False,
     ),
+    # The general class, with every parameter free.
+    CosmologyCase(
+        "planck18-open-w0wa",
+        W0WaCDM(H0=67.66, omega_m=0.3111, omega_k=0.05, w0=-0.9, wa=0.2),
+        0.04897,
+        0.9665,
+        3.047,
+        flat=False,
+        lcdm=False,
+    ),
     CosmologyCase(
         "planck18-closed",
         LCDM(H0=67.66, omega_m=0.3111, omega_k=-0.05),

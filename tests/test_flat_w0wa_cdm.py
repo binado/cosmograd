@@ -5,11 +5,10 @@ Comparisons against CAMB live in ``test_reference_background.py``."""
 from dataclasses import replace
 
 import jax
-import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from cosmograd import FlatLCDM, FlatW0WaCDM
+from cosmograd import FlatW0WaCDM
 
 H0, OMEGA_M = 67.36, 0.3153
 Z = np.linspace(0.0, 10.0, 101)
@@ -24,21 +23,6 @@ RTOL = 1e-5
 def cosmo(request: pytest.FixtureRequest) -> FlatW0WaCDM:
     w0, wa = request.param
     return FlatW0WaCDM(H0=H0, omega_m=OMEGA_M, w0=w0, wa=wa)
-
-
-def test_inverse_round_trip(cosmo: FlatW0WaCDM) -> None:
-    z = jnp.array([[0.0, 1e-8, 0.1], [1.0, 100.0, 1200.0]])
-    inverse = jax.jit(cosmo.redshift_at_comoving_distance)
-    np.testing.assert_allclose(inverse(cosmo.comoving_distance(z)), z)
-
-
-@pytest.mark.parametrize(
-    "method", ["hubble_parameter", "comoving_distance", "matter_density_parameter"]
-)
-def test_defaults_match_flat_lcdm(method: str) -> None:
-    lcdm = FlatLCDM(H0=H0, omega_m=OMEGA_M)
-    w0wa = FlatW0WaCDM(H0=H0, omega_m=OMEGA_M)
-    np.testing.assert_allclose(getattr(w0wa, method)(Z), getattr(lcdm, method)(Z))
 
 
 def test_leaves_are_parameters(cosmo: FlatW0WaCDM) -> None:

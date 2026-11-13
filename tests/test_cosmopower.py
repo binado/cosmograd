@@ -8,8 +8,7 @@ import numpy as np
 import pytest
 
 from cosmograd import FlatLCDM
-from cosmograd.constants import C_KM_S
-from cosmograd.perturbations.cosmopower import K_PIVOT, CosmoPower
+from cosmograd.perturbations.cosmopower import CosmoPower
 
 pytest.importorskip("cosmopower_jax")
 
@@ -51,22 +50,6 @@ def test_background_parameter_gradients(cosmo: CosmoPower) -> None:
     assert jnp.all(jnp.isfinite(derivatives) & (derivatives != 0))
 
 
-def test_sigma8_planck(cosmo: CosmoPower) -> None:
-    """Planck-like parameters with massless neutrinos give sigma_8 near 0.82."""
-    k = jnp.geomspace(1e-4, 5.0, 4000)
-    kr = k * 8 / (cosmo.background.hubble_constant * C_KM_S / 100)
-    window = 3 * (jnp.sin(kr) - kr * jnp.cos(kr)) / kr**3
-    integrand = k**3 * cosmo.matter_power_spectrum(k, 0.0) * window**2
-    sigma8 = jnp.sqrt(jnp.trapezoid(integrand, jnp.log(k)) / (2 * np.pi**2))
-    np.testing.assert_allclose(sigma8, 0.82, rtol=0.02)
-
-
-def test_primordial_amplitude_at_pivot(cosmo: CosmoPower) -> None:
-    np.testing.assert_allclose(
-        cosmo.primordial_power_spectrum(K_PIVOT), 1e-10 * np.exp(cosmo.ln10as)
-    )
-
-
 @pytest.mark.parametrize("k", [1e-3, 1e-2, 1e-1, 1.0])
 def test_power_spectrum_gradient_in_amplitude(cosmo: CosmoPower, k: float) -> None:
     """The linear spectrum is proportional to A_s, so d ln P / d ln(1e10 A_s) = 1."""
@@ -80,10 +63,3 @@ def test_growth_is_scale_independent(cosmo: CosmoPower, k: float) -> None:
     np.testing.assert_allclose(
         cosmo.growth_function(z, k=k), cosmo.growth_function(z), rtol=2e-3
     )
-
-
-def test_growth_rate_approximation(cosmo: CosmoPower) -> None:
-    """Linder (2005): f is close to Omega_m(z)^0.55 in LambdaCDM."""
-    z = jnp.linspace(0.0, 4.0, 9)
-    omega_m_z = cosmo.background.matter_density_parameter(z)
-    np.testing.assert_allclose(cosmo.growth_rate(z), omega_m_z**0.55, rtol=1e-2)

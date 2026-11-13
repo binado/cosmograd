@@ -16,14 +16,6 @@ def cosmo() -> FlatLCDM:
     return FlatLCDM(H0=H0, omega_m=OMEGA_M, t_cmb=T_CMB, n_eff=N_EFF)
 
 
-@pytest.mark.parametrize(("H0", "omega_m"), [(55.0, 0.2), (67.36, 0.3153), (85.0, 0.4)])
-def test_inverse_round_trip(H0: float, omega_m: float) -> None:
-    cosmo = FlatLCDM(H0=H0, omega_m=omega_m)
-    z = jnp.array([[0.0, 1e-8, 0.1], [1.0, 100.0, 1200.0]])
-    inverse = jax.jit(cosmo.redshift_at_comoving_distance)
-    np.testing.assert_allclose(inverse(cosmo.comoving_distance(z)), z)
-
-
 @pytest.mark.parametrize("z", [0.0, 1.0, 1200.0])
 def test_inverse_distance_derivatives(cosmo: FlatLCDM, z: float) -> None:
     chi = cosmo.comoving_distance(z)

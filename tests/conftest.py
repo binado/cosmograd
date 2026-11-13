@@ -29,6 +29,19 @@ from cosmograd.perturbations.cosmopower import CosmoPower
 jax.config.update("jax_enable_x64", True)
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Fetch the baccoemu emulators once, before any xdist worker starts.
+
+    ``baccoemu`` downloads into its install directory on first use, deleting the
+    archive after extraction, so concurrent workers would race on it.
+    """
+    if hasattr(config, "workerinput") or not _installed("baccoemu"):
+        return
+    from baccoemu.matter_powerspectrum import Matter_powerspectrum
+
+    Matter_powerspectrum(baryonic_boost=False, verbose=False)
+
+
 def _installed(module: str) -> bool:
     try:
         return importlib.util.find_spec(module) is not None

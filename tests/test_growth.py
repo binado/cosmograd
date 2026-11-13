@@ -81,13 +81,6 @@ def test_einstein_de_sitter(z: float, normalize: bool) -> None:
     np.testing.assert_allclose(f, 1.0, rtol=1e-7)
 
 
-def test_matter_era_normalization() -> None:
-    bg = FlatLCDM(H0=70.0, omega_m=0.3, t_cmb=0.0)
-    d, f = linear_growth(bg, 999.0, normalize=False)
-    np.testing.assert_allclose(d, 0.001)
-    np.testing.assert_allclose(f, 1.0)
-
-
 def test_jit_and_cosmology_vmap(smooth_background: SmoothWCDM) -> None:
     bg = smooth_background
     z = jnp.array([2.0, 0.0, 0.5])

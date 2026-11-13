@@ -49,6 +49,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "cosmograd[bacco,cosmopower]",
     "prek>=0.5.3",
     "ruff>=0.16.0",
     "ty>=0.0.83",
@@ -74,3 +75,6 @@ ignore = ["F722"]
 
 [tool.ty.src]
 include = ["src", "tests"]
+
+[tool.uv.sources]
+cosmograd = { workspace = true }

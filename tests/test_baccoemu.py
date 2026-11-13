@@ -236,9 +236,9 @@ def test_check_bounds_inside_range_passes() -> None:
 @pytest.mark.parametrize(
     ("cosmo", "k", "z", "match"),
     [
-        (replace(LCDM, omega_cold=0.5), None, 0.0, "omega_cold"),
+        (replace(LCDM, omega_cold=0.5, nonlinear=True), None, 0.0, "omega_cold"),
         (replace(LCDM, nonlinear=True), None, 2.0, "expfactor"),
-        (LCDM, 10.0, 0.0, "k/h"),
+        (replace(LCDM, nonlinear=True), 10.0, 0.0, "k/h"),
         (LCDM, 1e-6, 0.0, "k/h"),
     ],
     ids=["parameter", "redshift", "k_max", "k_min"],

@@ -4,8 +4,8 @@ Differentiable cosmology in JAX behind a small protocol contract.
 
 Consumers depend on two protocols, `Background` (expansion history and
 distances) and `Perturbations` (growth and power spectra), not on any one
-implementation. The core depends on JAX and jaxtyping; emulator backends sit behind
-optional extras.
+implementation. The core depends on JAX, jaxtyping and Diffrax; emulator
+backends sit behind optional extras.
 
 ## Install
 
@@ -47,11 +47,31 @@ jax.grad(lambda p: p.matter_power_spectrum(0.1, 0.5))(
 
 Here `omega_b` is Ω_b today, with `0 < omega_b < cosmo.omega_m`, and `ln10as`
 is ln(10¹⁰ A_s) at the pivot 0.05/Mpc. Growth is scale independent and neglects
-radiation, with quadrature checked through z = 10; background distances retain
-radiation. Massive neutrinos are unsupported, and constructing with
-`nonlinear=True` raises `NotImplementedError`. For protocol checks on this
+radiation, using a Diffrax ODE initialized with D = a at a = 0.001 and checked
+through z = 10; background distances retain radiation. Massive neutrinos are
+unsupported, and constructing with `nonlinear=True` raises `NotImplementedError`. For protocol checks on this
 backend, use
 `check_perturbations(pert, k, 0.5, linear_cosmo=pert)`.
+
+The reusable growth solver accepts any differentiable `Background`:
+
+```python
+from cosmograd.perturbations import linear_growth
+
+# Matter-era initial conditions require negligible radiation at a_initial.
+growth_background = FlatLCDM(H0=67.36, omega_m=0.3153, t_cmb=0.0)
+D, f = linear_growth(growth_background, z)  # D(0) = 1, f = d ln D / d ln a
+D_md, f = linear_growth(growth_background, z, normalize=False)  # initial D = a
+```
+
+The solver uses the supplied H(z) and Ω_m(z), supporting curvature and smooth
+dark energy within GR and scale-independent, subhorizon growth. Set
+`a_initial` inside matter domination and check sensitivity to this choice;
+its default of 0.001 assumes radiation is negligible. Backgrounds with
+radiation may need a later start. Redshifts must lie between 0 and
+`1/a_initial - 1`, and may have any shape or order. Both forward- and
+reverse-mode parameter derivatives are supported. EH keeps its `FlatLCDM`
+transfer-function inputs and supplies a radiation-free expansion to this solver.
 
 With the `bacco` extra, `BaccoEmu` emulates linear and nonlinear matter power
 spectra (weights are downloaded on first use). Select the spectrum with the
@@ -94,10 +114,11 @@ The `EisensteinHu` calculations follow:
   acoustic oscillations and Silk damping.
 - [Heath (1977)](https://doi.org/10.1093/mnras/179.3.351) and
   [Hamilton (2001), *Formulae for growth factors*](https://arxiv.org/abs/astro-ph/0006089),
-  equations (1)–(2): the growing-mode integral for matter plus Λ. The code
-  evaluates it by quadrature with a′ = a u² and differentiates it analytically
-  for the growth rate. Matter-era growth satisfies D_md → a; the public growth
-  function is D(z) = D_md(z) / D_md(0).
+  equations (1)–(2): the growing-mode integral for matter plus Λ, used as an
+  independent reference in the ODE tests. The Diffrax solver evolves
+  D″ + [2 + (ln H)′] D′ − (3/2) Ω_m D = 0 in ln a. Matter-era growth
+  starts with D_md = a and D_md′ = a; the public growth function is
+  D(z) = D_md(z) / D_md(0).
 - [Smith & Angulo (2019), *Precision modelling of the matter power spectrum in a Planck-like Universe*](https://arxiv.org/abs/1807.00040),
   equations (8) and (10): the primordial spectrum (with zero running) and its
   conversion to matter power. Their a g corresponds to D_md here; using

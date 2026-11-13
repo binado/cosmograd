@@ -51,7 +51,16 @@ def test_w0wacdm_gradient_matches_finite_difference(cosmo: W0WaCDM, name: str) -
 
 def test_w0wacdm_leaves_are_parameters(cosmo: W0WaCDM) -> None:
     leaves = jax.tree_util.tree_leaves(cosmo)
-    assert leaves == [H0, OMEGA_M, cosmo.omega_k, cosmo.w0, cosmo.wa]
+    assert leaves == [
+        H0,
+        OMEGA_M,
+        cosmo.omega_k,
+        cosmo.w0,
+        cosmo.wa,
+        cosmo.omega_b,
+        cosmo.n_s,
+        cosmo.ln10as,
+    ]
 
 
 @pytest.mark.parametrize(
@@ -69,7 +78,8 @@ def test_w0wacdm_leaves_are_parameters(cosmo: W0WaCDM) -> None:
 def test_constrained_class_leaves_exclude_fixed_parameters(
     constrained: Any, leaves: list[float]
 ) -> None:
-    assert jax.tree_util.tree_leaves(constrained) == leaves
+    perturbation = [constrained.omega_b, constrained.n_s, constrained.ln10as]
+    assert jax.tree_util.tree_leaves(constrained) == leaves + perturbation
 
 
 @pytest.mark.parametrize(

@@ -9,7 +9,12 @@ from jax import Array
 from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
-from ..constants import T_CMB_FIDUCIAL
+from ..constants import (
+    LN10AS_FIDUCIAL,
+    N_S_FIDUCIAL,
+    OMEGA_B_FIDUCIAL,
+    T_CMB_FIDUCIAL,
+)
 from ._base import _Flat, _given, _Lambda
 
 __all__ = ["FlatLCDM"]
@@ -35,14 +40,16 @@ class FlatLCDM(_Flat, _Lambda):
     photons plus ``n_eff`` massless neutrino species, fixed by ``t_cmb``.
     Massive neutrinos are not included.
 
-    The instance is a pytree whose leaves are ``H0``, ``omega_m`` and the
-    optional parameters that are set; ``t_cmb`` and ``n_eff`` are static.
+    The instance is a pytree whose leaves are ``H0``, ``omega_m`` and ``omega_b``,
+    ``n_s`` and ``ln10as``; ``t_cmb`` and ``n_eff`` are static.
     Differentiate with respect to the cosmology directly, e.g.
     ``jax.jacfwd(lambda c: c.luminosity_distance(z))(cosmo)``.
 
     Methods operate on one cosmology with scalar parameters. Parameter fields
     allow arbitrary shapes to hold batched pytrees and Jacobians; evaluate a
-    batch of cosmologies with :func:`jax.vmap`.
+    batch of cosmologies with :func:`jax.vmap`. Every leaf of a batch carries
+    the batch axis, defaulted parameters included; mapping the constructor,
+    ``jax.vmap(lambda h0: FlatLCDM(H0=h0, omega_m=0.3))(h0s)``, builds one.
 
     Distances use 32-point Gauss–Legendre quadrature in
     :math:`\\ln(1 + z)`. The inverse relation uses a fixed number of Newton
@@ -51,8 +58,11 @@ class FlatLCDM(_Flat, _Lambda):
 
     ``omega_b``, ``n_s`` and ``ln10as`` are read only by the perturbation
     backends, which take this object as their cosmology; no method here uses
-    them. Each is a pytree leaf when set and absent from the pytree when left
-    as ``None``.
+    them. They default to the Planck 2018 values of
+    :data:`~cosmograd.cosmologies.Planck18` and are always pytree leaves, so a
+    backend given a cosmology that leaves them out uses those values without
+    warning. The default ``omega_b`` does not follow ``H0``; set it explicitly
+    to hold :math:`\\Omega_b h^2` fixed.
 
     Parameters
     ----------
@@ -61,12 +71,12 @@ class FlatLCDM(_Flat, _Lambda):
     omega_m : ArrayLike
         Matter density parameter today, :math:`\\Omega_m`. Assumed to lie in
         ``(0, 1 - Omega_r)`` so that :math:`\\Omega_\\Lambda > 0`.
-    omega_b : ArrayLike, optional
+    omega_b : ArrayLike, default 0.04897
         Baryon density parameter today, :math:`\\Omega_b`, part of
         ``omega_m``.
-    n_s : ArrayLike, optional
+    n_s : ArrayLike, default 0.9665
         Scalar spectral index.
-    ln10as : ArrayLike, optional
+    ln10as : ArrayLike, default 3.047
         :math:`\\ln(10^{10} A_s)`, with :math:`A_s` the primordial curvature
         amplitude at the pivot 0.05/Mpc.
     t_cmb : float, default 2.7255
@@ -91,9 +101,9 @@ class FlatLCDM(_Flat, _Lambda):
 
     H0: Real[ArrayLike, "..."]
     omega_m: Real[ArrayLike, "..."]
-    omega_b: Real[ArrayLike, "..."] | None = None
-    n_s: Real[ArrayLike, "..."] | None = None
-    ln10as: Real[ArrayLike, "..."] | None = None
+    omega_b: Real[ArrayLike, "..."] = OMEGA_B_FIDUCIAL
+    n_s: Real[ArrayLike, "..."] = N_S_FIDUCIAL
+    ln10as: Real[ArrayLike, "..."] = LN10AS_FIDUCIAL
     t_cmb: float = T_CMB_FIDUCIAL
     n_eff: float = 3.044
 
@@ -112,8 +122,7 @@ class FlatLCDM(_Flat, _Lambda):
 
         Parameters left as ``None`` keep their current value. The signature
         lists only the parameters of this model, so a parameter the model
-        fixes is rejected by static checkers. To unset ``omega_b``, ``n_s`` or
-        ``ln10as``, use :func:`dataclasses.replace`.
+        fixes is rejected by static checkers.
 
         Returns
         -------

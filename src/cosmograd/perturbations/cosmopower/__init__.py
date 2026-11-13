@@ -22,7 +22,6 @@ from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
 from ...background import FlatLCDM
-from .._params import require
 
 __all__ = ["CosmoPower", "load_cosmopower"]
 
@@ -110,8 +109,7 @@ class CosmoPower:
     background : FlatLCDM
         The cosmology, retained by identity. Its ``H0``, ``omega_m``,
         ``omega_b``, ``n_s`` and ``ln10as`` set the emulator inputs (baryons
-        plus cold dark matter; neutrinos are massless). The last three must
-        be set; methods raise :class:`ValueError` otherwise.
+        plus cold dark matter; neutrinos are massless).
     c_min : ArrayLike, default 3.13
         HMcode halo concentration amplitude. Only affects ``nonlinear=True``.
     eta_0 : ArrayLike, default 0.603
@@ -173,7 +171,6 @@ class CosmoPower:
             array of shape ``(n,)``.
         """
         cosmo = self.background
-        require(cosmo, "omega_b", "n_s", "ln10as")
         h = jnp.asarray(cosmo.H0) / 100
         h2 = h**2
         omega_b = jnp.asarray(cosmo.omega_b)
@@ -363,7 +360,6 @@ class CosmoPower:
             of ``k``. The pivot is ``K_PIVOT`` = 0.05/Mpc.
         """
         cosmo = self.background
-        require(cosmo, "n_s", "ln10as")
         a_s = 1e-10 * jnp.exp(jnp.asarray(cosmo.ln10as))
         return a_s * (jnp.asarray(k, dtype=float) / K_PIVOT) ** (
             jnp.asarray(cosmo.n_s) - 1

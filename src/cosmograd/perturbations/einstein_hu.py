@@ -28,7 +28,6 @@ from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
 from ..background import FlatLCDM, FlatW0WaCDM
-from ._params import require
 from .growth import linear_growth
 
 __all__ = ["EisensteinHu"]
@@ -129,9 +128,8 @@ class EisensteinHu:
         The cosmology, retained by identity. Its Hubble constant, matter and
         baryon densities and CMB temperature set the transfer function, its
         ``n_s`` and ``ln10as`` the primordial spectrum, and its expansion
-        history without radiation the growth. The spectra need ``omega_b``
-        (with 0 < Ω_b < Ω_m), ``n_s`` and ``ln10as`` set and raise
-        :class:`ValueError` otherwise; growth does not. Dark energy must
+        history without radiation the growth. The transfer function
+        needs 0 < Ω_b < Ω_m, which is not checked. Dark energy must
         be negligible at the initial redshift of the growth ODE, which for
         :class:`~cosmograd.FlatW0WaCDM` needs ``w0 + wa`` well below zero.
     nonlinear : bool, default False
@@ -274,7 +272,6 @@ class EisensteinHu:
         """
         # Smith & Angulo (2019), equation (10), with c = 1 and a g = D_md.
         # D_md must retain its matter-era normalisation for the A_s conversion.
-        require(self.background, "omega_b")
         k = jnp.asarray(k)
         h2 = (jnp.asarray(self.background.H0) / 100) ** 2
         om = jnp.asarray(self.background.omega_m)
@@ -312,6 +309,5 @@ class EisensteinHu:
         A_s = 10⁻¹⁰ exp(ln10as). P_R here is dimensionless (their Δ_R²).
         """
         cosmo = self.background
-        require(cosmo, "n_s", "ln10as")
         amplitude = 1e-10 * jnp.exp(jnp.asarray(cosmo.ln10as))
         return amplitude * (jnp.asarray(k) / 0.05) ** (jnp.asarray(cosmo.n_s) - 1)

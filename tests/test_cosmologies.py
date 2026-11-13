@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from cosmograd import EisensteinHu, cosmologies
+from cosmograd import LCDM, EisensteinHu, FlatLCDM, FlatW0WaCDM, W0WaCDM, cosmologies
 
 # sigma_8 quoted in the table each cosmology is taken from.
 PUBLISHED_SIGMA8 = {"Planck13": 0.8288, "Planck15": 0.8159, "Planck18": 0.8102}
@@ -20,6 +20,13 @@ def name(request: pytest.FixtureRequest) -> str:
 @pytest.fixture
 def cosmo(name: str) -> Any:
     return getattr(cosmologies, name)
+
+
+@pytest.mark.parametrize("cls", [FlatLCDM, LCDM, FlatW0WaCDM, W0WaCDM])
+@pytest.mark.parametrize("parameter", ["omega_b", "n_s", "ln10as"])
+def test_perturbation_parameters_default_to_planck18(cls: Any, parameter: str) -> None:
+    default = getattr(cls(H0=70.0, omega_m=0.3), parameter)
+    assert default == getattr(cosmologies.Planck18, parameter)
 
 
 def test_has_every_perturbation_parameter(cosmo: Any) -> None:

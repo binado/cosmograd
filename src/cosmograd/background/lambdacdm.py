@@ -7,7 +7,12 @@ import jax
 from jax.typing import ArrayLike
 from jaxtyping import Real
 
-from ..constants import T_CMB_FIDUCIAL
+from ..constants import (
+    LN10AS_FIDUCIAL,
+    N_S_FIDUCIAL,
+    OMEGA_B_FIDUCIAL,
+    T_CMB_FIDUCIAL,
+)
 from ._base import _given, _Lambda
 
 __all__ = ["LCDM"]
@@ -35,14 +40,18 @@ class LCDM(_Lambda):
     ``t_cmb``. Massive neutrinos are not included.
 
     The instance is a pytree whose leaves are ``H0``, ``omega_m``,
-    ``omega_k`` and the optional parameters that are set; ``t_cmb`` and
+    ``omega_k`` and ``omega_b``,
+    ``n_s`` and ``ln10as``; ``t_cmb`` and
     ``n_eff`` are static. Methods operate on one cosmology with scalar
     parameters; evaluate a batch of cosmologies with :func:`jax.vmap`.
 
     ``omega_b``, ``n_s`` and ``ln10as`` are read only by the perturbation
     backends, which take this object as their cosmology; no method here uses
-    them. Each is a pytree leaf when set and absent from the pytree when left
-    as ``None``.
+    them. They default to the Planck 2018 values of
+    :data:`~cosmograd.cosmologies.Planck18` and are always pytree leaves, so a
+    backend given a cosmology that leaves them out uses those values without
+    warning. The default ``omega_b`` does not follow ``H0``; set it explicitly
+    to hold :math:`\\Omega_b h^2` fixed.
 
     Parameters
     ----------
@@ -54,12 +63,12 @@ class LCDM(_Lambda):
     omega_k : ArrayLike, default 0.0
         Curvature density parameter today, :math:`\\Omega_k`; positive for an
         open universe.
-    omega_b : ArrayLike, optional
+    omega_b : ArrayLike, default 0.04897
         Baryon density parameter today, :math:`\\Omega_b`, part of
         ``omega_m``.
-    n_s : ArrayLike, optional
+    n_s : ArrayLike, default 0.9665
         Scalar spectral index.
-    ln10as : ArrayLike, optional
+    ln10as : ArrayLike, default 3.047
         :math:`\\ln(10^{10} A_s)`, with :math:`A_s` the primordial curvature
         amplitude at the pivot 0.05/Mpc.
     t_cmb : float, default 2.7255
@@ -79,9 +88,9 @@ class LCDM(_Lambda):
     H0: Real[ArrayLike, "..."]
     omega_m: Real[ArrayLike, "..."]
     omega_k: Real[ArrayLike, "..."] = 0.0
-    omega_b: Real[ArrayLike, "..."] | None = None
-    n_s: Real[ArrayLike, "..."] | None = None
-    ln10as: Real[ArrayLike, "..."] | None = None
+    omega_b: Real[ArrayLike, "..."] = OMEGA_B_FIDUCIAL
+    n_s: Real[ArrayLike, "..."] = N_S_FIDUCIAL
+    ln10as: Real[ArrayLike, "..."] = LN10AS_FIDUCIAL
     t_cmb: float = T_CMB_FIDUCIAL
     n_eff: float = 3.044
 
@@ -101,8 +110,7 @@ class LCDM(_Lambda):
 
         Parameters left as ``None`` keep their current value. The signature
         lists only the parameters of this model, so a parameter the model
-        fixes is rejected by static checkers. To unset ``omega_b``, ``n_s`` or
-        ``ln10as``, use :func:`dataclasses.replace`.
+        fixes is rejected by static checkers.
 
         Returns
         -------

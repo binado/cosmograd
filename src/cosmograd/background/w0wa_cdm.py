@@ -1,6 +1,6 @@
 """Curved background with CPL dark energy."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 
 import jax
@@ -8,7 +8,7 @@ from jax.typing import ArrayLike
 from jaxtyping import Real
 
 from ..constants import T_CMB_FIDUCIAL
-from ._base import CPLBackground
+from ._base import CPLBackground, _given
 
 __all__ = ["W0WaCDM"]
 
@@ -97,3 +97,38 @@ class W0WaCDM(CPLBackground):
     wa: Real[ArrayLike, "..."] = 0.0
     t_cmb: float = T_CMB_FIDUCIAL
     n_eff: float = 3.044
+
+    def with_parameters(
+        self,
+        *,
+        H0: Real[ArrayLike, "..."] | None = None,
+        omega_m: Real[ArrayLike, "..."] | None = None,
+        omega_k: Real[ArrayLike, "..."] | None = None,
+        w0: Real[ArrayLike, "..."] | None = None,
+        wa: Real[ArrayLike, "..."] | None = None,
+        t_cmb: float | None = None,
+        n_eff: float | None = None,
+    ) -> "W0WaCDM":
+        """Return a copy with the given parameters replaced.
+
+        Parameters left as ``None`` keep their current value. The signature
+        lists only the parameters of this model, so a parameter the model
+        fixes is rejected by static checkers.
+
+        Returns
+        -------
+        W0WaCDM
+            A new instance; ``self`` is unchanged.
+        """
+        return replace(
+            self,
+            **_given(
+                H0=H0,
+                omega_m=omega_m,
+                omega_k=omega_k,
+                w0=w0,
+                wa=wa,
+                t_cmb=t_cmb,
+                n_eff=n_eff,
+            ),
+        )

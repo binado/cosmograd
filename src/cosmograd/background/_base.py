@@ -23,6 +23,12 @@ from .protocol import Background
 
 __all__ = ["CPLBackground"]
 
+
+def _given(**changes: object) -> dict[str, object]:
+    """Drop the entries of ``changes`` that are ``None``."""
+    return {k: v for k, v in changes.items() if v is not None}
+
+
 # Fixed number of Newton iterations used by the inverse distance relation.
 _NEWTON_ITERATIONS = 7
 

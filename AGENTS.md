@@ -7,6 +7,10 @@
 - `just fmt`: apply Ruff lint fixes and formatting.
 - `just lint` and `just typecheck`: run Ruff and ty checks.
 - `just test`: run pytest; use `just test tests/test_background.py -k gradient` for focused checks.
+- `just test -m "not slow"`: skip the comparisons against CAMB, cloelib and jax-cosmo.
+  These live in the `ref` dependency group (part of `dev`); each test skips itself
+  when its reference is not installed. cloelib downloads its CosmoPower emulators
+  from GitHub on first use.
 - `just build`: build source and wheel distributions with `uv build`.
 - `just check`: run lint, formatting validation, type checks, tests, build, and lockfile validation before submitting changes.
 

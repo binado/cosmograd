@@ -11,7 +11,7 @@ from jax import Array
 from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
-from ...background import Background, FlatLCDM
+from ...background import Background, FlatW0WaCDM
 from ..protocol import Perturbations
 from ._emulator import (
     LINEAR_KEYS,
@@ -119,10 +119,10 @@ class BaccoEmu(Perturbations):
     extrapolated as a power law; below the nonlinear grid the nonlinear
     spectrum equals the linear one.
 
-    :attr:`background` is a :class:`~cosmograd.FlatLCDM` with
-    :math:`\\Omega_m = \\Omega_{cb} + \\Omega_\\nu`. It treats neutrinos as
-    matter and ignores ``w0`` and ``wa``, so distances are consistent with
-    the spectra only for a cosmological constant.
+    :attr:`background` is a :class:`~cosmograd.FlatW0WaCDM` with the same
+    ``w0`` and ``wa`` and :math:`\\Omega_m = \\Omega_{cb} + \\Omega_\\nu`. It
+    treats massive neutrinos as matter at every redshift and adds the default
+    massless-neutrino radiation.
 
     The growth functions come from the linear emulator. Its ReLU networks
     are piecewise linear in :math:`a`, so :meth:`growth_rate` is a finite
@@ -218,17 +218,19 @@ class BaccoEmu(Perturbations):
 
     @property
     def background(self) -> Background:
-        """Flat :math:`\\Lambda\\mathrm{CDM}` with :math:`\\Omega_m = \\Omega_{cb} + \\Omega_\\nu`.
+        """Flat CPL background with :math:`\\Omega_m = \\Omega_{cb} + \\Omega_\\nu`.
 
         Returns
         -------
         Background
-            A :class:`~cosmograd.FlatLCDM`; see the class notes for what it
-            leaves out.
+            A :class:`~cosmograd.FlatW0WaCDM`; see the class notes for how it
+            treats neutrinos.
         """
-        return FlatLCDM(
+        return FlatW0WaCDM(
             H0=100 * jnp.asarray(self.h),
             omega_m=self._param("omega_cold") + self._omega_nu,
+            w0=self.w0,
+            wa=self.wa,
         )
 
     def growth_function(

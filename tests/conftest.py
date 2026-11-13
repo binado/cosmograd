@@ -67,6 +67,13 @@ class CosmologyCase:
     """Whether dark energy is a cosmological constant."""
 
     @property
+    def cosmology(self) -> ConcreteBackground:
+        """The background with the perturbation parameters set on it."""
+        return self.background.with_parameters(
+            omega_b=self.omega_b, n_s=self.n_s, ln10as=self.ln10as
+        )
+
+    @property
     def H0(self) -> float:
         return float(np.asarray(self.background.H0))
 
@@ -245,6 +252,10 @@ def cosmology_case(request: pytest.FixtureRequest) -> CosmologyCase:
     return request.param
 
 
+COSMOLOGY = FlatLCDM(H0=67.0, omega_m=0.31, omega_b=0.049, n_s=0.965, ln10as=3.044)
+"""A cosmology inside every backend's supported range."""
+
+
 @pytest.fixture
 def background(cosmology_case: CosmologyCase) -> Background:
     """Every in-tree background implementation, on every shared cosmology."""
@@ -266,12 +277,7 @@ class PerturbationsCase(NamedTuple):
     params=[
         pytest.param(
             PerturbationsCase(
-                EisensteinHu(
-                    FlatLCDM(H0=67.0, omega_m=0.31),
-                    omega_b=0.049,
-                    n_s=0.965,
-                    ln10as=3.044,
-                ),
+                EisensteinHu(COSMOLOGY),
                 k=jnp.geomspace(1e-4, 1.0, 7),
                 z=jnp.linspace(0.0, 10.0, 4),
                 supports_nonlinear=False,
@@ -280,12 +286,7 @@ class PerturbationsCase(NamedTuple):
         ),
         pytest.param(
             PerturbationsCase(
-                CosmoPower(
-                    FlatLCDM(H0=67.0, omega_m=0.31),
-                    omega_b=0.049,
-                    n_s=0.965,
-                    ln10as=3.044,
-                ),
+                CosmoPower(COSMOLOGY),
                 k=jnp.geomspace(1e-3, 1.0, 7),
                 z=jnp.linspace(0.0, 3.0, 4),
             ),
@@ -294,13 +295,7 @@ class PerturbationsCase(NamedTuple):
         ),
         pytest.param(
             PerturbationsCase(
-                BaccoEmu(
-                    h=0.67,
-                    omega_cold=0.31,
-                    omega_baryon=0.049,
-                    ns=0.965,
-                    sigma8_cold=0.81,
-                ),
+                BaccoEmu(COSMOLOGY),
                 k=jnp.geomspace(1e-3, 1.0, 7),
                 z=jnp.linspace(0.0, 1.5, 4),
             ),

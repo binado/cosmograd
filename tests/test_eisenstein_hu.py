@@ -13,31 +13,33 @@ from cosmograd.perturbations import EisensteinHu as ExportedEisensteinHu
 
 from .conftest import CosmologyCase, camb_results, cosmology_params
 
+PLANCK = FlatLCDM(H0=67.36, omega_m=0.3153, omega_b=0.0493, n_s=0.9649, ln10as=3.044)
+
 
 @pytest.fixture(
     params=[
-        EisensteinHu(FlatLCDM(H0=67.36, omega_m=0.3153), 0.0493, 0.9649, 3.044),
-        EisensteinHu(FlatLCDM(H0=72.0, omega_m=0.25), 0.04, 1.0, 3.1),
-        EisensteinHu(FlatLCDM(H0=62.0, omega_m=0.4, t_cmb=2.8), 0.07, 0.94, 2.9),
+        PLANCK,
+        FlatLCDM(H0=72.0, omega_m=0.25, omega_b=0.04, n_s=1.0, ln10as=3.1),
+        FlatLCDM(H0=62.0, omega_m=0.4, omega_b=0.07, n_s=0.94, ln10as=2.9, t_cmb=2.8),
     ],
     ids=["planck", "low-matter", "high-matter"],
 )
 def eh(request: pytest.FixtureRequest) -> EisensteinHu:
-    return request.param
+    return EisensteinHu(request.param)
 
 
 def test_background_and_pytree(eh: EisensteinHu) -> None:
     bg = eh.background
-    cosmo = EisensteinHu(bg, eh.omega_b, eh.n_s, eh.ln10as)
+    cosmo = EisensteinHu(bg)
     assert cosmo.background is bg
     assert isinstance(cosmo, Perturbations)
     assert ExportedEisensteinHu is EisensteinHu
     np.testing.assert_array_equal(
         jax.tree_util.tree_leaves(cosmo),
-        [bg.H0, bg.omega_m, eh.omega_b, eh.n_s, eh.ln10as],
+        [bg.H0, bg.omega_m, bg.omega_b, bg.n_s, bg.ln10as],
     )
     with pytest.raises(FrozenInstanceError):
-        setattr(cosmo, "n_s", 1.0)
+        setattr(cosmo, "nonlinear", True)
 
 
 def test_growth_normalisation_and_scale_independence(eh: EisensteinHu) -> None:
@@ -85,7 +87,7 @@ def test_jit_and_vmap(eh: EisensteinHu, method: str) -> None:
     expected = evaluate(eh, x)
     np.testing.assert_allclose(jax.jit(evaluate)(eh, x), expected)
     np.testing.assert_allclose(jax.vmap(evaluate, in_axes=(None, 0))(eh, x), expected)
-    second = replace(eh, background=replace(eh.background, omega_m=0.33), n_s=0.97)
+    second = EisensteinHu(eh.background.with_parameters(omega_m=0.33, n_s=0.97))
     batch = jax.tree_util.tree_map(lambda a, b: jnp.stack([a, b]), eh, second)
     np.testing.assert_allclose(
         jax.jit(jax.vmap(evaluate, in_axes=(0, None)))(batch, x),
@@ -101,7 +103,7 @@ def test_parameter_gradients(eh: EisensteinHu) -> None:
     leaves = jnp.array(jax.tree_util.tree_leaves(gradient))
     assert leaves.shape == (5,)
     assert jnp.all(jnp.isfinite(leaves) & (leaves != 0))
-    np.testing.assert_allclose(gradient.ln10as, 1.0)
+    np.testing.assert_allclose(gradient.background.ln10as, 1.0)
 
 
 def test_nonlinear_rejected(eh: EisensteinHu) -> None:
@@ -148,8 +150,8 @@ def _jax_cosmo_power(case: CosmologyCase, sigma8: Array, k: Array, z: float) -> 
 
 
 def _perturbations(case: CosmologyCase) -> EisensteinHu:
-    assert isinstance(case.background, FlatLCDM | FlatW0WaCDM)
-    return EisensteinHu(case.background, case.omega_b, case.n_s, case.ln10as)
+    assert isinstance(case.cosmology, FlatLCDM | FlatW0WaCDM)
+    return EisensteinHu(case.cosmology)
 
 
 @pytest.mark.slow
@@ -175,9 +177,8 @@ def test_shape_gradient_against_jax_cosmo(case: CosmologyCase, name: str) -> Non
     sigma8 = _sigma8(_perturbations(case))
 
     def ours(omega_m: Array, omega_b: Array) -> Array:
-        bg = replace(_perturbations(case).background, omega_m=omega_m)
-        eh = EisensteinHu(bg, omega_b, case.n_s, case.ln10as)
-        return jnp.log(eh.linear_matter_power_spectrum(k, 0.0))
+        bg = replace(_perturbations(case).background, omega_m=omega_m, omega_b=omega_b)
+        return jnp.log(EisensteinHu(bg).linear_matter_power_spectrum(k, 0.0))
 
     def theirs(omega_m: Array, omega_b: Array) -> Array:
         replaced = replace(

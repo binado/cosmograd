@@ -8,11 +8,14 @@ import pytest
 from cosmograd import LCDM, FlatLCDM, FlatW0WaCDM, W0WaCDM
 from cosmograd.background import Background
 
+PERTURBATION_PARAMETERS = {"omega_b": 0.049, "n_s": 0.965, "ln10as": 3.044}
 CASES = [
-    FlatLCDM(H0=67.0, omega_m=0.31),
-    LCDM(H0=67.0, omega_m=0.31, omega_k=0.02),
-    FlatW0WaCDM(H0=67.0, omega_m=0.31, w0=-0.9, wa=0.2),
-    W0WaCDM(H0=67.0, omega_m=0.31, omega_k=0.02, w0=-0.9, wa=0.2),
+    FlatLCDM(H0=67.0, omega_m=0.31, **PERTURBATION_PARAMETERS),
+    LCDM(H0=67.0, omega_m=0.31, omega_k=0.02, **PERTURBATION_PARAMETERS),
+    FlatW0WaCDM(H0=67.0, omega_m=0.31, w0=-0.9, wa=0.2, **PERTURBATION_PARAMETERS),
+    W0WaCDM(
+        H0=67.0, omega_m=0.31, omega_k=0.02, w0=-0.9, wa=0.2, **PERTURBATION_PARAMETERS
+    ),
 ]
 FIELD_CASES = [(c, f.name) for c in CASES for f in fields(c)]
 

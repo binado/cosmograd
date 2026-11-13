@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from cosmograd import FlatLCDM
+from cosmograd import FlatLCDM, FlatW0WaCDM
 from cosmograd.perturbations.baccoemu import BaccoEmu
 from cosmograd.perturbations.cosmopower import CosmoPower
 
@@ -68,15 +68,8 @@ def test_cosmopower(case: CosmologyCase, nonlinear: bool) -> None:
         reference = emu.NonLinear(background, linear, Z) if nonlinear else linear
     except ValueError as err:  # raised by cloelib's training-box check
         pytest.skip(str(err))
-    bg = case.background
-    assert isinstance(bg, FlatLCDM)
-    mine = CosmoPower(
-        bg,
-        omega_b=case.omega_b,
-        n_s=case.n_s,
-        ln10as=case.ln10as,
-        nonlinear=nonlinear,
-    )
+    assert isinstance(case.cosmology, FlatLCDM)
+    mine = CosmoPower(case.cosmology, nonlinear=nonlinear)
     expected = np.asarray(reference.matter_power_spectrum(Z, K))
     actual = (
         np.asarray(mine.matter_power_spectrum(K[None, :], Z[:, None]))
@@ -92,15 +85,8 @@ def test_cosmopower(case: CosmologyCase, nonlinear: bool) -> None:
 def test_baccoemu_linear(case: CosmologyCase) -> None:
     module = pytest.importorskip("cloelib.cosmology.baccoemu_cosmology")
     pytest.importorskip("baccoemu.matter_powerspectrum")
-    mine = BaccoEmu(
-        h=case.H0 / 100,
-        omega_cold=case.omega_m,
-        omega_baryon=case.omega_b,
-        ns=case.n_s,
-        A_s=math.exp(case.ln10as) * 1e-10,
-        w0=case.w0,
-        wa=case.wa,
-    )
+    assert isinstance(case.cosmology, FlatLCDM | FlatW0WaCDM)
+    mine = BaccoEmu(case.cosmology)
     try:
         mine.check_bounds(K, Z)
     except ValueError as err:
@@ -115,16 +101,8 @@ def test_baccoemu_linear(case: CosmologyCase) -> None:
 def test_baccoemu_nonlinear(case: CosmologyCase) -> None:
     module = pytest.importorskip("cloelib.cosmology.baccoemu_cosmology")
     pytest.importorskip("baccoemu.matter_powerspectrum")
-    mine = BaccoEmu(
-        h=case.H0 / 100,
-        omega_cold=case.omega_m,
-        omega_baryon=case.omega_b,
-        ns=case.n_s,
-        A_s=math.exp(case.ln10as) * 1e-10,
-        w0=case.w0,
-        wa=case.wa,
-        nonlinear=True,
-    )
+    assert isinstance(case.cosmology, FlatLCDM | FlatW0WaCDM)
+    mine = BaccoEmu(case.cosmology, nonlinear=True)
     try:
         mine.check_bounds(K, Z)
     except ValueError as err:

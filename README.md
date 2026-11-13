@@ -29,7 +29,7 @@ cosmo.luminosity_distance(z)  # Mpc
 jax.jacfwd(lambda c: c.luminosity_distance(z))(cosmo)  # FlatLCDM-shaped Jacobian
 ```
 
-`FlatW0WaCDM` adds CPL dark energy, w(a) = w0 + wa (1 - a), with `w0` and `wa`
+`FlatW0WaCDM` adds CPL dark energy, $w(a) = w_0 + w_a (1 - a)$, with `w0` and `wa`
 as extra differentiable parameters:
 
 ```python
@@ -53,10 +53,24 @@ cosmo = W0WaCDM(H0=67.36, omega_m=0.3153, omega_k=0.02)
 cosmo.luminosity_distance(z)
 ```
 
-The perturbation backends below assume a flat universe and take the flat
-classes only. `EisensteinHu` accepts either flat background. `BaccoEmu.background` is a
-`FlatW0WaCDM` with the instance's `w0` and `wa`; `CosmoPower` is trained on
-ΛCDM and takes a `FlatLCDM` only.
+Every class also takes the optional `omega_b`, `n_s` and `ln10as`, so that one
+object holds the whole cosmology. No background method reads them, and left
+unset they are not part of the pytree. Standard cosmologies carry them:
+
+```python
+from cosmograd.cosmologies import Planck18
+
+Planck18.luminosity_distance(z)
+Planck18.with_parameters(omega_m=0.30)  # a modified copy
+```
+
+Here `omega_b` is $\Omega_b$ today, with `0 < omega_b < omega_m`, and `ln10as` is
+$\ln(10^{10} A_s)$ at the pivot $0.05\,\mathrm{Mpc}^{-1}$.
+
+The perturbation backends below take such a cosmology plus their own settings,
+and raise `ValueError` when a spectrum needs a parameter that is unset. They
+assume a flat universe: `EisensteinHu` and `BaccoEmu` accept either flat class;
+`CosmoPower` is trained on $\Lambda\mathrm{CDM}$ and takes a `FlatLCDM` only.
 
 The native `EisensteinHu` backend provides linear matter power with EH98 baryon
 acoustic oscillations, normalised by the primordial amplitude:
@@ -64,20 +78,18 @@ acoustic oscillations, normalised by the primordial amplitude:
 ```python
 from cosmograd import EisensteinHu
 
-pert = EisensteinHu(cosmo, omega_b=0.0493, n_s=0.9649, ln10as=3.044)
+pert = EisensteinHu(Planck18)
 k = jnp.geomspace(1e-4, 1.0, 100)  # 1/Mpc
-pert.background is cosmo  # True
+pert.background is Planck18  # True
 pert.matter_power_spectrum(k, z[:, None])  # Mpc^3, shape (20, 100)
 pert.growth_function(z)  # normalised to 1 at z = 0
-jax.grad(lambda p: p.matter_power_spectrum(0.1, 0.5))(
-    pert
-)  # nested parameter gradients
+# One FlatLCDM-shaped gradient over H0, omega_m, omega_b, n_s and ln10as.
+jax.grad(lambda c: EisensteinHu(c).matter_power_spectrum(0.1, 0.5))(Planck18)
 ```
 
-Here `omega_b` is Ω_b today, with `0 < omega_b < cosmo.omega_m`, and `ln10as`
-is ln(10¹⁰ A_s) at the pivot 0.05/Mpc. Growth is scale independent and neglects
-radiation, using a Diffrax ODE initialized with D = a at a = 0.001 and checked
-through z = 10; background distances retain radiation. Massive neutrinos are
+Growth is scale independent and neglects
+radiation, using a Diffrax ODE initialized with $D = a$ at $a = 0.001$ and checked
+through $z = 10$; background distances retain radiation. Massive neutrinos are
 unsupported, and constructing with `nonlinear=True` raises
 `NotImplementedError`. For protocol checks on this backend, use
 `check_perturbations(pert, k, 0.5)`.
@@ -93,12 +105,12 @@ D, f = linear_growth(growth_background, z)  # D(0) = 1, f = d ln D / d ln a
 D_md, f = linear_growth(growth_background, z, normalize=False)  # initial D = a
 ```
 
-The solver uses the supplied H(z) and Ω_m(z), supporting curvature and smooth
+The solver uses the supplied $H(z)$ and $\Omega_m(z)$, supporting curvature and smooth
 dark energy within GR and scale-independent, subhorizon growth. Set
 `a_initial` inside matter domination and check sensitivity to this choice.
-The default of 0.001 (z = 999) is appropriate only for radiation-free
-backgrounds (`t_cmb=0`); with radiation, D and f shift by roughly 1e-4 to 1e-3
-at the default, which `rtol` does not control. Such backgrounds need a larger
+The default of 0.001 ($z = 999$) is appropriate only for radiation-free
+backgrounds (`t_cmb=0`); with radiation, $D$ and $f$ shift by roughly $10^{-4}$ to
+$10^{-3}$ at the default, which `rtol` does not control. Such backgrounds need a larger
 `a_initial`, late enough for radiation to be negligible but early enough that
 dark energy and curvature still are. Redshifts must lie between 0 and
 `1/a_initial - 1`, outside which the result is NaN, and may have any shape or
@@ -114,14 +126,7 @@ constructor's `nonlinear` option, which defaults to `False` for every backend:
 ```python
 from cosmograd.perturbations.baccoemu import BaccoEmu
 
-pert = BaccoEmu(
-    h=0.67,
-    omega_cold=0.315,
-    omega_baryon=0.05,
-    ns=0.96,
-    sigma8_cold=0.8,
-    nonlinear=True,
-)
+pert = BaccoEmu(Planck18, nonlinear=True)
 k = jnp.geomspace(1e-3, 3.0, 100)  # 1/Mpc
 z = jnp.linspace(0.0, 1.5, 16)
 pert.check_bounds(k, z)  # eager check of the training ranges
@@ -129,8 +134,14 @@ pert.matter_power_spectrum(k, z[:, None])  # Mpc^3, shape (16, 100)
 pert.linear_matter_power_spectrum(k, z[:, None])  # linear, whatever `nonlinear` is
 ```
 
-Units: distances in Mpc, wavenumbers in 1/Mpc, H in 1/Mpc (c = 1), power spectra
-in Mpc^3. Inputs are not validated; each method documents the range it expects.
+`BaccoEmu` also takes `neutrino_mass` (the cosmology's `omega_m` is then the
+total matter density, $\Omega_{cb} + \Omega_\nu$) and `sigma8_cold`, which sets the amplitude
+in place of the cosmology's `ln10as`. With the `cosmopower` extra,
+`CosmoPower(Planck18, c_min=3.13, eta_0=0.603, nonlinear=True)` works the same
+way, with the HMcode feedback parameters as its own differentiable fields.
+
+Units: distances in Mpc, wavenumbers in $\mathrm{Mpc}^{-1}$, $H$ in $\mathrm{Mpc}^{-1}$
+($c = 1$), power spectra in $\mathrm{Mpc}^3$. Inputs are not validated; each method documents the range it expects.
 
 To check your own implementation against the contract:
 
@@ -149,18 +160,20 @@ The `EisensteinHu` calculations follow:
   acoustic oscillations and Silk damping.
 - [Heath (1977)](https://doi.org/10.1093/mnras/179.3.351) and
   [Hamilton (2001), *Formulae for growth factors*](https://arxiv.org/abs/astro-ph/0006089),
-  equations (1)–(2): the growing-mode integral for matter plus Λ, used as an
+  equations (1)–(2): the growing-mode integral for matter plus $\Lambda$, used as an
   independent reference in the ODE tests. The Diffrax solver integrates the
-  equivalent Sturm–Liouville form (a² E D′)′ = (3/2) a² E Ω_m D in ln a, using
-  the variables described in the `linear_growth` notes, so H is never
-  differentiated. Matter-era growth starts with D_md = a and D_md′ = a; the
-  public growth function is D(z) = D_md(z) / D_md(0).
+  equivalent Sturm–Liouville form $(a^2 E D')' = \tfrac{3}{2} a^2 E \Omega_m D$ in
+  $\ln a$, using the variables described in the `linear_growth` notes, so $H$ is
+  never differentiated. Matter-era growth starts with $D_\mathrm{md} = a$ and
+  $D_\mathrm{md}' = a$; the public growth function is
+  $D(z) = D_\mathrm{md}(z) / D_\mathrm{md}(0)$.
 - [Smith & Angulo (2019), *Precision modelling of the matter power spectrum in a Planck-like Universe*](https://arxiv.org/abs/1807.00040),
   equations (8) and (10): the primordial spectrum (with zero running) and its
-  conversion to matter power. Their a g corresponds to D_md here; using
-  today-normalised D instead would change the absolute power normalisation.
+  conversion to matter power. Their $a g$ corresponds to $D_\mathrm{md}$ here; using
+  today-normalised $D$ instead would change the absolute power normalisation.
 - [Planck Collaboration (2020), *Planck 2018 results. VI. Cosmological parameters*](https://arxiv.org/abs/1807.06209),
-  section 2.1: the pivot k = 0.05/Mpc and ln(10¹⁰ A_s) parameter convention.
+  section 2.1: the pivot $k = 0.05\,\mathrm{Mpc}^{-1}$ and $\ln(10^{10} A_s)$ parameter
+  convention.
 
 Equation references also appear beside the corresponding calculations in
 `src/cosmograd/perturbations/einstein_hu.py`.

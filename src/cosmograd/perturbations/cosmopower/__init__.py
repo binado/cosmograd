@@ -2,7 +2,7 @@
 
 :class:`CosmoPower` emulates the CLASS linear spectrum (probe ``mpk_lin``) and
 the HMcode nonlinear boost (probe ``mpk_boost``) of Spurio Mancini et al.
-(2022), on a supplied :class:`~cosmograd.FlatLCDM` background.
+(2022), for a supplied :class:`~cosmograd.FlatLCDM` cosmology.
 The emulators are loaded on first use and never become pytree leaves.
 """
 
@@ -22,6 +22,7 @@ from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
 from ...background import FlatLCDM
+from .._params import require
 
 __all__ = ["CosmoPower", "load_cosmopower"]
 
@@ -79,7 +80,7 @@ def _log_modes(probe: str) -> np.ndarray:
 
 @partial(
     jax.tree_util.register_dataclass,
-    data_fields=["background", "omega_b", "n_s", "ln10as", "c_min", "eta_0"],
+    data_fields=["background", "c_min", "eta_0"],
     meta_fields=["k_growth", "nonlinear"],
 )
 @dataclass(frozen=True)
@@ -98,8 +99,8 @@ class CosmoPower:
     differentiation. Without ``k`` both are evaluated at ``k_growth``, where
     the emulated growth is scale independent.
 
-    The instance is a pytree whose leaves are the parameter fields;
-    ``k_growth`` and ``nonlinear`` are static. The emulator networks are
+    The instance is a pytree whose leaves are those of the cosmology plus
+    ``c_min`` and ``eta_0``; ``k_growth`` and ``nonlinear`` are static. The emulator networks are
     module-level constants, never leaves.
     Methods operate on one cosmology with scalar parameters; batch with
     :func:`jax.vmap`.
@@ -107,16 +108,10 @@ class CosmoPower:
     Parameters
     ----------
     background : FlatLCDM
-        Background object, retained by identity. Its Hubble constant and matter
-        density set the emulator inputs (baryons plus cold dark matter;
-        neutrinos are massless).
-    omega_b : ArrayLike
-        Baryon density parameter today, :math:`\\Omega_b`.
-    n_s : ArrayLike
-        Scalar spectral index.
-    ln10as : ArrayLike
-        :math:`\\ln(10^{10} A_s)`, with :math:`A_s` the primordial amplitude
-        at the pivot ``K_PIVOT`` = 0.05/Mpc.
+        The cosmology, retained by identity. Its ``H0``, ``omega_m``,
+        ``omega_b``, ``n_s`` and ``ln10as`` set the emulator inputs (baryons
+        plus cold dark matter; neutrinos are massless). The last three must
+        be set; methods raise :class:`ValueError` otherwise.
     c_min : ArrayLike, default 3.13
         HMcode halo concentration amplitude. Only affects ``nonlinear=True``.
     eta_0 : ArrayLike, default 0.603
@@ -158,9 +153,6 @@ class CosmoPower:
     __no_type_check__ = True
 
     background: FlatLCDM
-    omega_b: Real[ArrayLike, ...]
-    n_s: Real[ArrayLike, ...]
-    ln10as: Real[ArrayLike, ...]
     c_min: Real[ArrayLike, ...] = 3.13
     eta_0: Real[ArrayLike, ...] = 0.603
     k_growth: float = 0.01
@@ -180,17 +172,17 @@ class CosmoPower:
             Every input name used by ``mpk_lin`` and ``mpk_boost``, each an
             array of shape ``(n,)``.
         """
-        h = jnp.asarray(self.background.H0) / 100
+        cosmo = self.background
+        require(cosmo, "omega_b", "n_s", "ln10as")
+        h = jnp.asarray(cosmo.H0) / 100
         h2 = h**2
+        omega_b = jnp.asarray(cosmo.omega_b)
         params = {
-            "omega_b": jnp.asarray(self.omega_b) * h2,
-            "omega_cdm": (
-                jnp.asarray(self.background.omega_m) - jnp.asarray(self.omega_b)
-            )
-            * h2,
+            "omega_b": omega_b * h2,
+            "omega_cdm": (jnp.asarray(cosmo.omega_m) - omega_b) * h2,
             "h": h,
-            "n_s": self.n_s,
-            "ln10^{10}A_s": self.ln10as,
+            "n_s": cosmo.n_s,
+            "ln10^{10}A_s": cosmo.ln10as,
             "cmin": self.c_min,
             "eta_0": self.eta_0,
         }
@@ -370,5 +362,9 @@ class CosmoPower:
             :math:`\\mathcal{P}_\\mathcal{R}(k)`, dimensionless, with the shape
             of ``k``. The pivot is ``K_PIVOT`` = 0.05/Mpc.
         """
-        a_s = 1e-10 * jnp.exp(jnp.asarray(self.ln10as))
-        return a_s * (jnp.asarray(k, dtype=float) / K_PIVOT) ** (self.n_s - 1)
+        cosmo = self.background
+        require(cosmo, "n_s", "ln10as")
+        a_s = 1e-10 * jnp.exp(jnp.asarray(cosmo.ln10as))
+        return a_s * (jnp.asarray(k, dtype=float) / K_PIVOT) ** (
+            jnp.asarray(cosmo.n_s) - 1
+        )

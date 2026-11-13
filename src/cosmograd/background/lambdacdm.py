@@ -15,7 +15,7 @@ __all__ = ["LCDM"]
 
 @partial(
     jax.tree_util.register_dataclass,
-    data_fields=["H0", "omega_m", "omega_k"],
+    data_fields=["H0", "omega_m", "omega_k", "omega_b", "n_s", "ln10as"],
     meta_fields=["t_cmb", "n_eff"],
 )
 @dataclass(frozen=True)
@@ -34,10 +34,15 @@ class LCDM(_Lambda):
     Radiation is photons plus ``n_eff`` massless neutrino species, fixed by
     ``t_cmb``. Massive neutrinos are not included.
 
-    The instance is a pytree whose leaves are ``H0``, ``omega_m`` and
-    ``omega_k``; every other field is static. Methods operate on one
-    cosmology with scalar parameters; evaluate a batch of cosmologies with
-    :func:`jax.vmap`.
+    The instance is a pytree whose leaves are ``H0``, ``omega_m``,
+    ``omega_k`` and the optional parameters that are set; ``t_cmb`` and
+    ``n_eff`` are static. Methods operate on one cosmology with scalar
+    parameters; evaluate a batch of cosmologies with :func:`jax.vmap`.
+
+    ``omega_b``, ``n_s`` and ``ln10as`` are read only by the perturbation
+    backends, which take this object as their cosmology; no method here uses
+    them. Each is a pytree leaf when set and absent from the pytree when left
+    as ``None``.
 
     Parameters
     ----------
@@ -49,6 +54,14 @@ class LCDM(_Lambda):
     omega_k : ArrayLike, default 0.0
         Curvature density parameter today, :math:`\\Omega_k`; positive for an
         open universe.
+    omega_b : ArrayLike, optional
+        Baryon density parameter today, :math:`\\Omega_b`, part of
+        ``omega_m``.
+    n_s : ArrayLike, optional
+        Scalar spectral index.
+    ln10as : ArrayLike, optional
+        :math:`\\ln(10^{10} A_s)`, with :math:`A_s` the primordial curvature
+        amplitude at the pivot 0.05/Mpc.
     t_cmb : float, default 2.7255
         CMB temperature today in K. Static.
     n_eff : float, default 3.044
@@ -66,6 +79,9 @@ class LCDM(_Lambda):
     H0: Real[ArrayLike, "..."]
     omega_m: Real[ArrayLike, "..."]
     omega_k: Real[ArrayLike, "..."] = 0.0
+    omega_b: Real[ArrayLike, "..."] | None = None
+    n_s: Real[ArrayLike, "..."] | None = None
+    ln10as: Real[ArrayLike, "..."] | None = None
     t_cmb: float = T_CMB_FIDUCIAL
     n_eff: float = 3.044
 
@@ -75,6 +91,9 @@ class LCDM(_Lambda):
         H0: Real[ArrayLike, "..."] | None = None,
         omega_m: Real[ArrayLike, "..."] | None = None,
         omega_k: Real[ArrayLike, "..."] | None = None,
+        omega_b: Real[ArrayLike, "..."] | None = None,
+        n_s: Real[ArrayLike, "..."] | None = None,
+        ln10as: Real[ArrayLike, "..."] | None = None,
         t_cmb: float | None = None,
         n_eff: float | None = None,
     ) -> "LCDM":
@@ -82,7 +101,8 @@ class LCDM(_Lambda):
 
         Parameters left as ``None`` keep their current value. The signature
         lists only the parameters of this model, so a parameter the model
-        fixes is rejected by static checkers.
+        fixes is rejected by static checkers. To unset ``omega_b``, ``n_s`` or
+        ``ln10as``, use :func:`dataclasses.replace`.
 
         Returns
         -------
@@ -91,5 +111,14 @@ class LCDM(_Lambda):
         """
         return replace(
             self,
-            **_given(H0=H0, omega_m=omega_m, omega_k=omega_k, t_cmb=t_cmb, n_eff=n_eff),
+            **_given(
+                H0=H0,
+                omega_m=omega_m,
+                omega_k=omega_k,
+                omega_b=omega_b,
+                n_s=n_s,
+                ln10as=ln10as,
+                t_cmb=t_cmb,
+                n_eff=n_eff,
+            ),
         )

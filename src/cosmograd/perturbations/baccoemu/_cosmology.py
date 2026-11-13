@@ -11,8 +11,8 @@ from jax import Array
 from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
-from ...background import Background, FlatW0WaCDM
-from ..protocol import Perturbations
+from ...background import FlatLCDM, FlatW0WaCDM
+from .._params import require
 from ._emulator import (
     LINEAR_KEYS,
     NONLINEAR_KEYS,
@@ -39,24 +39,18 @@ _GROWTH_WEIGHTS = _GROWTH_STENCIL / np.sum(_GROWTH_STENCIL**2)
 
 _Table = Callable[[Float[Array, ""]], Float[Array, " grid"]]
 
+# Python floats would be weakly typed and demoted to float32 by the weights;
+# cast to the default float dtype so precision follows ``jax_enable_x64``.
+_float = partial(jnp.asarray, dtype=float)
+
 
 @partial(
     jax.tree_util.register_dataclass,
-    data_fields=[
-        "h",
-        "omega_cold",
-        "omega_baryon",
-        "ns",
-        "sigma8_cold",
-        "A_s",
-        "neutrino_mass",
-        "w0",
-        "wa",
-    ],
+    data_fields=["background", "sigma8_cold", "neutrino_mass"],
     meta_fields=["model_name", "cold", "nonlinear"],
 )
 @dataclass(frozen=True)
-class BaccoEmu(Perturbations):
+class BaccoEmu:
     """Linear and nonlinear matter power spectra from the bacco emulators.
 
     A differentiable JAX port of ``baccoemu.Matter_powerspectrum`` (Aricò et
@@ -65,12 +59,10 @@ class BaccoEmu(Perturbations):
     download the network weights, which are cached per ``model_name`` and
     never become pytree leaves.
 
-    The instance is a pytree whose leaves are the cosmological parameters;
-    ``model_name``, ``cold`` and ``nonlinear`` are static. Give exactly one of
-    ``sigma8_cold`` and ``A_s``; the other is left as ``None`` and derived
-    from the sigma8 emulator; methods raise :class:`ValueError` otherwise.
-    Parameters may be traced, so differentiate with
-    respect to the instance directly, e.g.
+    The instance is a pytree whose leaves are those of the cosmology plus
+    ``neutrino_mass`` and, when set, ``sigma8_cold``; ``model_name``, ``cold``
+    and ``nonlinear`` are static. Parameters may be traced, so differentiate
+    with respect to the instance directly, e.g.
     ``jax.jacfwd(lambda c: c.matter_power_spectrum(k, z))(cosmo)``.
 
     ``k`` and ``z`` broadcast elementwise. The networks run once per element
@@ -79,25 +71,20 @@ class BaccoEmu(Perturbations):
 
     Parameters
     ----------
-    h : ArrayLike
-        Dimensionless Hubble constant, ``hubble`` in ``baccoemu``.
-    omega_cold : ArrayLike
-        Cold matter (CDM + baryons) density parameter today,
-        :math:`\\Omega_{cb}`.
-    omega_baryon : ArrayLike
-        Baryon density parameter today, :math:`\\Omega_b`.
-    ns : ArrayLike
-        Scalar spectral index.
+    background : FlatLCDM or FlatW0WaCDM
+        The cosmology, retained by identity. The emulator inputs are
+        ``hubble = H0 / 100``, ``omega_baryon = omega_b``, ``ns = n_s``,
+        its ``w0`` and ``wa``, and
+        :math:`\\Omega_{cb} = \\Omega_m - \\Omega_\\nu`: ``omega_m`` is the
+        total matter density, including massive neutrinos. ``omega_b`` and
+        ``n_s`` must be set; methods raise :class:`ValueError` otherwise.
     sigma8_cold : ArrayLike, optional
         RMS linear cold-matter fluctuation in spheres of 8 Mpc/h at
-        :math:`z = 0`.
-    A_s : ArrayLike, optional
-        Primordial curvature amplitude at :math:`k = 0.05` 1/Mpc.
+        :math:`z = 0`. When given it sets the amplitude and the cosmology's
+        ``ln10as`` is ignored; otherwise ``ln10as`` is required.
     neutrino_mass : ArrayLike, default 0.0
         Sum of the neutrino masses in eV,
         :math:`\\Omega_\\nu h^2 = M_\\nu / 93.14`.
-    w0, wa : ArrayLike, default -1.0, 0.0
-        Dark energy equation of state :math:`w(a) = w_0 + w_a (1 - a)`.
     model_name : {"Angulo2021", "Arico2023"}, default "Angulo2021"
         Nonlinear emulator. Static.
     cold : bool, default False
@@ -119,10 +106,9 @@ class BaccoEmu(Perturbations):
     extrapolated as a power law; below the nonlinear grid the nonlinear
     spectrum equals the linear one.
 
-    :attr:`background` is a :class:`~cosmograd.FlatW0WaCDM` with the same
-    ``w0`` and ``wa`` and :math:`\\Omega_m = \\Omega_{cb} + \\Omega_\\nu`. It
-    treats massive neutrinos as matter at every redshift and adds the default
-    massless-neutrino radiation.
+    The emulated expansion history is not exactly that of
+    :attr:`background`, which treats massive neutrinos as matter at every
+    redshift and keeps its own radiation content.
 
     The growth functions come from the linear emulator. Its ReLU networks
     are piecewise linear in :math:`a`, so :meth:`growth_rate` is a finite
@@ -136,15 +122,9 @@ class BaccoEmu(Perturbations):
     # which JAX calls with placeholder leaves during transforms.
     __no_type_check__ = True
 
-    h: Real[ArrayLike, "..."]
-    omega_cold: Real[ArrayLike, "..."]
-    omega_baryon: Real[ArrayLike, "..."]
-    ns: Real[ArrayLike, "..."]
+    background: FlatLCDM | FlatW0WaCDM
     sigma8_cold: Real[ArrayLike, "..."] | None = None
-    A_s: Real[ArrayLike, "..."] | None = None
     neutrino_mass: Real[ArrayLike, "..."] = 0.0
-    w0: Real[ArrayLike, "..."] = -1.0
-    wa: Real[ArrayLike, "..."] = 0.0
     model_name: ModelName = "Angulo2021"
     cold: bool = False
     nonlinear: bool = False
@@ -153,35 +133,32 @@ class BaccoEmu(Perturbations):
     def _emulator(self) -> Emulator:
         return load_emulator(self.model_name)
 
-    def _param(self, name: str) -> Float[Array, ""]:
-        # Python floats would be weakly typed and demoted to float32 by the
-        # weights; cast to the default float dtype so precision follows the
-        # user's ``jax_enable_x64`` setting.
-        return jnp.asarray(getattr(self, name), dtype=float)
-
     @property
-    def _omega_nu(self) -> Float[Array, ""]:
-        return self._param("neutrino_mass") / NU_DENSITY / self._param("h") ** 2
+    def _h(self) -> Float[Array, ""]:
+        return _float(self.background.H0) / 100
 
     def _bacco_params(self, z: Real[ArrayLike, ""]) -> dict[str, Float[Array, ""]]:
         """Parameters keyed by ``baccoemu`` name, at one redshift."""
+        cosmo = self.background
+        require(cosmo, "omega_b", "n_s")
+        h = self._h
+        neutrino_mass = _float(self.neutrino_mass)
         p = {
-            "hubble": self._param("h"),
-            "omega_cold": self._param("omega_cold"),
-            "omega_baryon": self._param("omega_baryon"),
-            "ns": self._param("ns"),
-            "neutrino_mass": self._param("neutrino_mass"),
-            "w0": self._param("w0"),
-            "wa": self._param("wa"),
+            "hubble": h,
+            "omega_cold": _float(cosmo.omega_m) - neutrino_mass / NU_DENSITY / h**2,
+            "omega_baryon": _float(cosmo.omega_b),
+            "ns": _float(cosmo.n_s),
+            "neutrino_mass": neutrino_mass,
+            "w0": _float(cosmo.w0),
+            "wa": _float(cosmo.wa),
         }
-        # Checked here rather than in ``__post_init__``: JAX rebuilds the
-        # pytree with placeholder leaves, including ``None``, in transforms.
-        if (self.sigma8_cold is None) == (self.A_s is None):
-            raise ValueError("Give exactly one of 'sigma8_cold' and 'A_s'.")
-        amp = "A_s" if self.sigma8_cold is None else "sigma8_cold"
-        p["A_s"], p["sigma8_cold"] = amplitudes(
-            self._emulator, {**p, amp: self._param(amp)}
-        )
+        if self.sigma8_cold is not None:
+            amplitude = {"sigma8_cold": _float(self.sigma8_cold)}
+        elif cosmo.ln10as is not None:
+            amplitude = {"A_s": 1e-10 * jnp.exp(_float(cosmo.ln10as))}
+        else:
+            raise ValueError("Set 'ln10as' on the cosmology or give 'sigma8_cold'.")
+        p["A_s"], p["sigma8_cold"] = amplitudes(self._emulator, p | amplitude)
         p["expfactor"] = 1 / (1 + jnp.asarray(z, dtype=float))
         return p
 
@@ -214,24 +191,7 @@ class BaccoEmu(Perturbations):
         """Wavenumber in h/Mpc; the largest scale of the linear grid for ``None``."""
         if k is None:
             return jnp.asarray(self._emulator.k_lin[0])
-        return jnp.asarray(k) / self._param("h")
-
-    @property
-    def background(self) -> Background:
-        """Flat CPL background with :math:`\\Omega_m = \\Omega_{cb} + \\Omega_\\nu`.
-
-        Returns
-        -------
-        Background
-            A :class:`~cosmograd.FlatW0WaCDM`; see the class notes for how it
-            treats neutrinos.
-        """
-        return FlatW0WaCDM(
-            H0=100 * jnp.asarray(self.h),
-            omega_m=self._param("omega_cold") + self._omega_nu,
-            w0=self.w0,
-            wa=self.wa,
-        )
+        return jnp.asarray(k) / self._h
 
     def growth_function(
         self,
@@ -366,7 +326,7 @@ class BaccoEmu(Perturbations):
             self._k_h(k),
             z,
         )
-        return jnp.exp(log_pk_h) / self._param("h") ** 3
+        return jnp.exp(log_pk_h) / self._h**3
 
     def primordial_power_spectrum(
         self,
@@ -386,8 +346,8 @@ class BaccoEmu(Perturbations):
             :math:`\\mathcal{P}_\\mathcal{R}(k)`, dimensionless, with the shape
             of ``k``.
         """
-        a_s = self._bacco_params(0.0)["A_s"]
-        return a_s * (jnp.asarray(k) / K_PIVOT) ** (self._param("ns") - 1)
+        p = self._bacco_params(0.0)
+        return p["A_s"] * (jnp.asarray(k) / K_PIVOT) ** (p["ns"] - 1)
 
     def check_bounds(
         self,

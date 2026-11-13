@@ -28,6 +28,7 @@ from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
 from ..background import FlatLCDM, FlatW0WaCDM
+from ._params import require
 from .growth import linear_growth
 
 __all__ = ["EisensteinHu"]
@@ -120,22 +121,19 @@ def _transfer(
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
 class EisensteinHu:
-    """EH98 linear perturbations on a supplied flat background.
+    """EH98 linear perturbations for a flat cosmology.
 
     Parameters
     ----------
     background : FlatLCDM or FlatW0WaCDM
-        Background object, retained by identity. Its Hubble constant, matter
-        density and CMB temperature set the transfer function, and its
-        expansion history without radiation sets the growth. Dark energy must
+        The cosmology, retained by identity. Its Hubble constant, matter and
+        baryon densities and CMB temperature set the transfer function, its
+        ``n_s`` and ``ln10as`` the primordial spectrum, and its expansion
+        history without radiation the growth. The spectra need ``omega_b``
+        (with 0 < Ω_b < Ω_m), ``n_s`` and ``ln10as`` set and raise
+        :class:`ValueError` otherwise; growth does not. Dark energy must
         be negligible at the initial redshift of the growth ODE, which for
         :class:`~cosmograd.FlatW0WaCDM` needs ``w0 + wa`` well below zero.
-    omega_b : ArrayLike
-        Baryon density today, Ω_b (not Ω_b h²), with 0 < Ω_b < Ω_m.
-    n_s : ArrayLike
-        Primordial scalar spectral index.
-    ln10as : ArrayLike
-        Natural logarithm of 10¹⁰ A_s, at the pivot k = 0.05/Mpc.
     nonlinear : bool, default False
         Nonlinear power is unsupported; True raises NotImplementedError. Static.
 
@@ -151,18 +149,14 @@ class EisensteinHu:
     the initial redshift of the ODE (``1/a_initial - 1`` for the default
     ``a_initial``); larger or negative redshifts return NaN.
 
-    Only the background parameters and three spectral parameters are pytree
-    leaves. Fields may hold batched parameters or Jacobians; evaluate one
+    The pytree leaves are those of the cosmology. Its fields may hold
+    batched parameters or Jacobians; evaluate one
     cosmology at a time, using :func:`jax.vmap` for batches.
     """
 
     __no_type_check__ = True
 
     background: FlatLCDM | FlatW0WaCDM
-    omega_b: Real[ArrayLike, "..."]
-    n_s: Real[ArrayLike, "..."]
-    ln10as: Real[ArrayLike, "..."]
-
     nonlinear: bool = field(default=False, metadata={"static": True})
 
     def __post_init__(self) -> None:
@@ -280,10 +274,13 @@ class EisensteinHu:
         """
         # Smith & Angulo (2019), equation (10), with c = 1 and a g = D_md.
         # D_md must retain its matter-era normalisation for the A_s conversion.
+        require(self.background, "omega_b")
         k = jnp.asarray(k)
         h2 = (jnp.asarray(self.background.H0) / 100) ** 2
         om = jnp.asarray(self.background.omega_m)
-        transfer = _transfer(k, self.omega_b * h2, om * h2, self.background.t_cmb)
+        transfer = _transfer(
+            k, jnp.asarray(self.background.omega_b) * h2, om * h2, self.background.t_cmb
+        )
         delta = (
             0.4
             * k**2
@@ -314,4 +311,7 @@ class EisensteinHu:
         and logarithmic amplitude parameter follow [Planck20]_ section 2.1:
         A_s = 10⁻¹⁰ exp(ln10as). P_R here is dimensionless (their Δ_R²).
         """
-        return 1e-10 * jnp.exp(self.ln10as) * (jnp.asarray(k) / 0.05) ** (self.n_s - 1)
+        cosmo = self.background
+        require(cosmo, "n_s", "ln10as")
+        amplitude = 1e-10 * jnp.exp(jnp.asarray(cosmo.ln10as))
+        return amplitude * (jnp.asarray(k) / 0.05) ** (jnp.asarray(cosmo.n_s) - 1)

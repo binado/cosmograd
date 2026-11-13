@@ -180,17 +180,21 @@ def _download(name: str, destination: Path, url: str, sha256: str) -> None:
 def _retrieve(url: str, path: Path) -> None:
     """Save ``url`` to ``path``, tolerating an unverifiable certificate chain."""
     try:
-        _save(url, path, context=None)
+        _save(url, path, ssl.create_default_context())
     except urllib.error.URLError as err:
         if not isinstance(err.reason, ssl.SSLCertVerificationError):
             raise
         context = ssl.create_default_context()
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
-        _save(url, path, context=context)
+        _save(url, path, context)
 
 
-def _save(url: str, path: Path, context: ssl.SSLContext | None) -> None:
-    with urllib.request.urlopen(url, timeout=_TIMEOUT, context=context) as response:
+def _save(url: str, path: Path, context: ssl.SSLContext) -> None:
+    # A private opener: ``urlopen`` would build and cache a global one with
+    # verification on, which makes the unverified context that ``baccoemu``
+    # installs for its own downloads (see the module docstring) have no effect.
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context))
+    with opener.open(url, timeout=_TIMEOUT) as response:
         with path.open("wb") as out:
             shutil.copyfileobj(response, out)

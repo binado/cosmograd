@@ -1,4 +1,6 @@
-"""Curved and general backgrounds against astropy and their constrained limits."""
+"""Curved and general backgrounds and their constrained limits.
+
+Comparisons against CAMB live in ``test_reference_background.py``."""
 
 from dataclasses import replace
 from typing import Any
@@ -7,17 +9,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from astropy import cosmology as astropy_cosmology
-from astropy import units as u
 
 from cosmograd import LCDM, FlatLCDM, FlatW0WaCDM, W0WaCDM
 
 H0, OMEGA_M = 67.36, 0.3153
 Z = np.linspace(0.0, 10.0, 101)
 RTOL = 1e-5
-
-# astropy creates its cosmology classes dynamically; see test_background.py.
-AstropyW0waCDM: Any = astropy_cosmology.w0waCDM
 
 
 @pytest.fixture(
@@ -33,44 +30,6 @@ AstropyW0waCDM: Any = astropy_cosmology.w0waCDM
 def cosmo(request: pytest.FixtureRequest) -> W0WaCDM:
     omega_k, w0, wa = request.param
     return W0WaCDM(H0=H0, omega_m=OMEGA_M, omega_k=omega_k, w0=w0, wa=wa)
-
-
-@pytest.fixture
-def reference(cosmo: W0WaCDM) -> Any:
-    # astropy fixes Omega_k = 1 - Omega_m - Omega_de - Omega_r.
-    return AstropyW0waCDM(
-        H0=H0,
-        Om0=OMEGA_M,
-        Ode0=float(cosmo.omega_de),
-        w0=cosmo.w0,
-        wa=cosmo.wa,
-        Tcmb0=cosmo.t_cmb,
-        Neff=cosmo.n_eff,
-        m_nu=0.0 * u.eV,
-    )
-
-
-@pytest.mark.parametrize(
-    ("method", "reference_method", "unit"),
-    [
-        ("efunc", "efunc", None),
-        ("comoving_distance", "comoving_distance", u.Mpc),
-        ("transverse_comoving_distance", "comoving_transverse_distance", u.Mpc),
-        ("luminosity_distance", "luminosity_distance", u.Mpc),
-        ("angular_diameter_distance", "angular_diameter_distance", u.Mpc),
-    ],
-)
-def test_w0wacdm_curved_matches_astropy(
-    cosmo: W0WaCDM,
-    reference: Any,
-    method: str,
-    reference_method: str,
-    unit: u.UnitBase | None,
-) -> None:
-    expected = getattr(reference, reference_method)(Z)
-    if unit is not None:
-        expected = expected.to_value(unit)
-    np.testing.assert_allclose(getattr(cosmo, method)(Z), expected, rtol=RTOL)
 
 
 def test_w0wacdm_curved_inverse_recovers_redshift(cosmo: W0WaCDM) -> None:

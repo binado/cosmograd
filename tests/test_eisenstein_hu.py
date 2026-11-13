@@ -11,6 +11,8 @@ from jax import Array
 from cosmograd import EisensteinHu, FlatLCDM, FlatW0WaCDM, Perturbations
 from cosmograd.perturbations import EisensteinHu as ExportedEisensteinHu
 
+from .conftest import CosmologyCase, camb_results, cosmology_params
+
 
 @pytest.fixture(
     params=[
@@ -147,3 +149,108 @@ def test_dark_energy_changes_growth_only() -> None:
     # Earlier dark energy suppresses growth, by the same factor on every scale.
     assert ratio[0] < 1
     np.testing.assert_allclose(ratio, ratio[0])
+
+
+def _sigma8(eh: EisensteinHu) -> Array:
+    """RMS linear fluctuation in 8 Mpc/h spheres, by top-hat quadrature in ln k."""
+    h = jnp.asarray(eh.background.H0) / 100
+    ln_k = jnp.linspace(jnp.log(1e-5), jnp.log(50.0), 4000)
+    k = jnp.exp(ln_k)
+    x = k * 8 / h
+    window = 3 * (jnp.sin(x) - x * jnp.cos(x)) / x**3
+    integrand = k**3 * eh.linear_matter_power_spectrum(k, 0.0) * window**2
+    return jnp.sqrt(jnp.trapezoid(integrand, ln_k) / (2 * jnp.pi**2))
+
+
+def _jax_cosmo_power(case: CosmologyCase, sigma8: Array, k: Array, z: float) -> Array:
+    """jax-cosmo's EH98 spectrum in 1/Mpc and Mpc^3, at the given sigma8."""
+    jc = pytest.importorskip("jax_cosmo")
+    transfer = pytest.importorskip("jax_cosmo.transfer")
+    bg = case.background
+    h = jnp.asarray(bg.H0) / 100
+    cosmo = jc.Cosmology(
+        Omega_c=bg.omega_m - case.omega_b,
+        Omega_b=case.omega_b,
+        h=h,
+        n_s=case.n_s,
+        sigma8=sigma8,
+        Omega_k=0.0,
+        w0=bg.w0,
+        wa=bg.wa,
+    )
+    # jax-cosmo works in h/Mpc and (Mpc/h)^3.
+    pk = jc.power.linear_matter_power(
+        cosmo,
+        k / h,
+        a=1 / (1 + z),
+        transfer_fn=transfer.Eisenstein_Hu,
+        type="eisenhu_osc",
+    )
+    return pk / h**3
+
+
+def _perturbations(case: CosmologyCase) -> EisensteinHu:
+    assert isinstance(case.background, FlatLCDM | FlatW0WaCDM)
+    return EisensteinHu(case.background, case.omega_b, case.n_s, case.ln10as)
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("z", [0.0, 1.0, 2.0])
+@pytest.mark.parametrize("case", cosmology_params("flat"))
+def test_against_jax_cosmo(case: CosmologyCase, z: float) -> None:
+    eh = _perturbations(case)
+    k = jnp.geomspace(1e-3, 1.0, 12)
+    # jax-cosmo normalises through sigma8, so hand it ours.
+    expected = _jax_cosmo_power(case, _sigma8(eh), k, z)
+    np.testing.assert_allclose(
+        eh.linear_matter_power_spectrum(k, z), expected, rtol=1e-2
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("name", ["omega_m", "omega_b"])
+@pytest.mark.parametrize("case", cosmology_params("flat_lcdm"))
+def test_shape_gradient_against_jax_cosmo(case: CosmologyCase, name: str) -> None:
+    # The ratio P(k) / P(k_ref) is independent of the amplitude, so each code
+    # can be differentiated without coupling sigma8 to the parameters.
+    k = jnp.array([0.02, 0.1, 0.5])
+    sigma8 = _sigma8(_perturbations(case))
+
+    def ours(omega_m: Array, omega_b: Array) -> Array:
+        bg = replace(_perturbations(case).background, omega_m=omega_m)
+        eh = EisensteinHu(bg, omega_b, case.n_s, case.ln10as)
+        return jnp.log(eh.linear_matter_power_spectrum(k, 0.0))
+
+    def theirs(omega_m: Array, omega_b: Array) -> Array:
+        replaced = replace(
+            case, omega_b=omega_b, background=replace(case.background, omega_m=omega_m)
+        )
+        return jnp.log(_jax_cosmo_power(replaced, sigma8, k, 0.0))
+
+    argnum = ("omega_m", "omega_b").index(name)
+    point = (jnp.asarray(case.background.omega_m), jnp.asarray(case.omega_b))
+    ours_jac = jax.jacfwd(ours, argnums=argnum)(*point)
+    theirs_jac = jax.jacfwd(theirs, argnums=argnum)(*point)
+    # Remove the amplitude: differences of log P between wavenumbers.
+    np.testing.assert_allclose(
+        jnp.diff(ours_jac), jnp.diff(theirs_jac), rtol=5e-2, atol=1e-2
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("z", [0.0, 1.0])
+@pytest.mark.parametrize("case", cosmology_params("flat"))
+def test_against_camb(case: CosmologyCase, z: float) -> None:
+    results = camb_results(case, power=True, kmax=2.0, zs=(0.0, 1.0))
+    interpolator = results.get_matter_power_interpolator(
+        nonlinear=False, hubble_units=False, k_hunit=False
+    )
+    k = np.geomspace(1e-3, 1.0, 40)
+    # EH98 is a fitting formula and cannot match a Boltzmann code more closely
+    # than a few per cent (the BAO phase shifts it most); it is a sanity bound on
+    # shape and amplitude.
+    np.testing.assert_allclose(
+        _perturbations(case).linear_matter_power_spectrum(k, z),
+        interpolator.P(z, k),
+        rtol=8e-2,
+    )

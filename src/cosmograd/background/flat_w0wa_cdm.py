@@ -4,13 +4,11 @@ from dataclasses import dataclass
 from functools import partial
 
 import jax
-import jax.numpy as jnp
-from jax import Array
 from jax.typing import ArrayLike
-from jaxtyping import Float, Real
+from jaxtyping import Real
 
 from ..constants import T_CMB_FIDUCIAL
-from ._flat import FlatBackground
+from ._base import _Flat
 
 __all__ = ["FlatW0WaCDM"]
 
@@ -21,12 +19,13 @@ __all__ = ["FlatW0WaCDM"]
     meta_fields=["t_cmb", "n_eff"],
 )
 @dataclass(frozen=True)
-class FlatW0WaCDM(FlatBackground):
+class FlatW0WaCDM(_Flat):
     """Flat background with radiation and CPL dark energy.
 
-    The dark energy equation of state is
-    :math:`w(a) = w_0 + w_a (1 - a)` (Chevallier & Polarski 2001; Linder
-    2003), whose density evolves in closed form, so the expansion rate is
+    This is :class:`~cosmograd.W0WaCDM` with :math:`\\Omega_k = 0` fixed. The
+    dark energy equation of state is :math:`w(a) = w_0 + w_a (1 - a)`
+    (Chevallier & Polarski 2001; Linder 2003), whose density evolves in
+    closed form, so the expansion rate is
 
     .. math::
 
@@ -85,24 +84,3 @@ class FlatW0WaCDM(FlatBackground):
     wa: Real[ArrayLike, "..."] = 0.0
     t_cmb: float = T_CMB_FIDUCIAL
     n_eff: float = 3.044
-
-    def efunc(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
-        """Dimensionless expansion rate :math:`E(z) = H(z) / H_0`.
-
-        Parameters
-        ----------
-        z : ArrayLike
-            Redshift, non-negative.
-
-        Returns
-        -------
-        Array
-            :math:`E(z)`, with the shape of ``z``.
-        """
-        z = jnp.asarray(z)
-        zp1 = 1 + z
-        w0, wa = jnp.asarray(self.w0), jnp.asarray(self.wa)
-        dark_energy = zp1 ** (3 * (1 + w0 + wa)) * jnp.exp(-3 * wa * z / zp1)
-        return jnp.sqrt(
-            self.omega_m * zp1**3 + self.omega_r * zp1**4 + self.omega_de * dark_energy
-        )

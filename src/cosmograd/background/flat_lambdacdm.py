@@ -10,7 +10,7 @@ from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
 from ..constants import T_CMB_FIDUCIAL
-from ._flat import FlatBackground
+from ._base import _Flat, _Lambda
 
 __all__ = ["FlatLCDM"]
 
@@ -21,10 +21,11 @@ __all__ = ["FlatLCDM"]
     meta_fields=["t_cmb", "n_eff"],
 )
 @dataclass(frozen=True)
-class FlatLCDM(FlatBackground):
+class FlatLCDM(_Flat, _Lambda):
     """Flat :math:`\\Lambda\\mathrm{CDM}` background with radiation.
 
-    The expansion rate is
+    This is :class:`~cosmograd.W0WaCDM` with :math:`\\Omega_k = 0`,
+    :math:`w_0 = -1` and :math:`w_a = 0` fixed, so
 
     .. math::
 
@@ -81,6 +82,9 @@ class FlatLCDM(FlatBackground):
 
     def efunc(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
         """Dimensionless expansion rate :math:`E(z) = H(z) / H_0`.
+
+        Drops the zero curvature term of the general form, which XLA does not
+        fold away and which costs about a quarter of the distance evaluation.
 
         Parameters
         ----------

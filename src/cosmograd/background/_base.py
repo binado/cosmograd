@@ -1,4 +1,4 @@
-"""Machinery shared by the flat backgrounds with radiation."""
+"""Machinery shared by every background with radiation and CPL dark energy."""
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -21,19 +21,22 @@ from ..utils import (
 )
 from .protocol import Background
 
-__all__ = ["FlatBackground"]
+__all__ = ["CPLBackground"]
 
 # Fixed number of Newton iterations used by the inverse distance relation.
 _NEWTON_ITERATIONS = 7
 
 
-class FlatBackground(Background):
-    """Flat background with matter, radiation and a dark energy component.
+class CPLBackground(Background):
+    """Background with matter, radiation, curvature and CPL dark energy.
 
-    Not public. Subclasses are dataclasses registered as pytrees that declare
-    the fields below and implement :meth:`efunc`; everything else follows from
-    it. Radiation is photons plus ``n_eff`` massless neutrino species, fixed
-    by ``t_cmb``, and dark energy closes the universe.
+    Not public. Subclasses are dataclasses registered as pytrees. Each
+    provides ``H0``, ``omega_m``, ``t_cmb``, ``n_eff``, ``omega_k``, ``w0`` and
+    ``wa``, either as fields or, for a constrained model, as constants through
+    :class:`_Flat` and :class:`_Lambda`. Everything else follows from the
+    general expansion rate in :meth:`efunc`. Radiation is photons plus
+    ``n_eff`` massless neutrino species, fixed by ``t_cmb``, and dark energy
+    closes the universe.
 
     Distances use 32-point Gauss–Legendre quadrature in
     :math:`\\ln(1 + z)`. The inverse relation uses a fixed number of Newton
@@ -49,6 +52,12 @@ class FlatBackground(Background):
         def H0(self) -> Real[ArrayLike, "..."]: ...  # noqa: N802
         @property
         def omega_m(self) -> Real[ArrayLike, "..."]: ...
+        @property
+        def omega_k(self) -> Real[ArrayLike, "..."]: ...
+        @property
+        def w0(self) -> Real[ArrayLike, "..."]: ...
+        @property
+        def wa(self) -> Real[ArrayLike, "..."]: ...
         @property
         def t_cmb(self) -> float: ...
         @property
@@ -74,9 +83,10 @@ class FlatBackground(Background):
         Returns
         -------
         Array
-            :math:`1 - \\Omega_m - \\Omega_r`, dimensionless, scalar.
+            :math:`1 - \\Omega_m - \\Omega_r - \\Omega_k`, dimensionless,
+            scalar.
         """
-        return 1 - jnp.asarray(self.omega_m) - self.omega_r
+        return 1 - jnp.asarray(self.omega_m) - self.omega_r - jnp.asarray(self.omega_k)
 
     def efunc(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
         """Dimensionless expansion rate :math:`E(z) = H(z) / H_0`.
@@ -91,7 +101,16 @@ class FlatBackground(Background):
         Array
             :math:`E(z)`, with the shape of ``z``.
         """
-        raise NotImplementedError
+        z = jnp.asarray(z)
+        zp1 = 1 + z
+        w0, wa = jnp.asarray(self.w0), jnp.asarray(self.wa)
+        dark_energy = zp1 ** (3 * (1 + w0 + wa)) * jnp.exp(-3 * wa * z / zp1)
+        return jnp.sqrt(
+            self.omega_m * zp1**3
+            + self.omega_r * zp1**4
+            + jnp.asarray(self.omega_k) * zp1**2
+            + self.omega_de * dark_energy
+        )
 
     @property
     def hubble_constant(self) -> Float[Array, ""]:
@@ -158,6 +177,31 @@ class FlatBackground(Background):
         integrand = jnp.exp(x) / self.hubble_parameter(jnp.expm1(x))
         return 0.5 * length * jnp.sum(weights * integrand, axis=-1)
 
+    def transverse_comoving_distance(
+        self,
+        z: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
+        """Transverse comoving distance :math:`D_M(z)`.
+
+        With :math:`x = \\Omega_k (H_0 \\chi)^2` this is
+        :math:`\\chi\\, \\mathrm{sinhc}(\\sqrt{x})`, using
+        :math:`\\sin` for negative :math:`x`. The expression is smooth and
+        differentiable through :math:`\\Omega_k = 0`.
+
+        Parameters
+        ----------
+        z : ArrayLike
+            Redshift, non-negative.
+
+        Returns
+        -------
+        Array
+            :math:`D_M(z)` in Mpc, with the shape of ``z``.
+        """
+        chi = self.comoving_distance(z)
+        x = jnp.asarray(self.omega_k) * (self.hubble_constant * chi) ** 2
+        return chi * _sinhc_sqrt(x)
+
     def redshift_at_comoving_distance(
         self,
         chi: Real[ArrayLike, "*shape"],
@@ -199,9 +243,73 @@ class FlatBackground(Background):
         return jnp.expm1(x)
 
 
+class _Flat(CPLBackground):
+    """Mixin fixing :math:`\\Omega_k = 0`.
+
+    Not public. Flat models have no curvature parameter and skip the
+    curvature correction in :meth:`transverse_comoving_distance`.
+    """
+
+    @property
+    def omega_k(self) -> float:
+        """Curvature density parameter, identically zero."""
+        return 0.0
+
+    def transverse_comoving_distance(
+        self,
+        z: Real[ArrayLike, "*shape"],
+    ) -> Float[Array, "*shape"]:
+        """Transverse comoving distance, :math:`D_M = \\chi` when flat.
+
+        Parameters
+        ----------
+        z : ArrayLike
+            Redshift, non-negative.
+
+        Returns
+        -------
+        Array
+            :math:`D_M(z)` in Mpc, with the shape of ``z``.
+        """
+        return self.comoving_distance(z)
+
+
+class _Lambda(CPLBackground):
+    """Mixin fixing the cosmological constant, :math:`w_0 = -1, w_a = 0`.
+
+    Not public.
+    """
+
+    @property
+    def w0(self) -> float:
+        """Dark energy equation of state today, identically :math:`-1`."""
+        return -1.0
+
+    @property
+    def wa(self) -> float:
+        """Evolution of the equation of state, identically zero."""
+        return 0.0
+
+
+def _sinhc_sqrt(x: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
+    """:math:`\\sinh(\\sqrt{x}) / \\sqrt{x}` for any sign of ``x``.
+
+    Negative ``x`` gives :math:`\\sin(\\sqrt{-x}) / \\sqrt{-x}`. A Taylor series
+    covers :math:`|x| < 10^{-2}`, where the closed forms divide by zero; the
+    inner ``where`` keeps gradients finite there.
+    """
+    x = jnp.asarray(x)
+    small = jnp.abs(x) < 1e-2
+    safe = jnp.where(small, 1.0, x)
+    root = jnp.sqrt(jnp.abs(safe))
+    exact = jnp.where(safe > 0, jnp.sinh(root), jnp.sin(root)) / root
+    series = 1 + x / 6 + x**2 / 120 + x**3 / 5040
+    return jnp.where(small, series, exact)
+
+
 @jax.custom_jvp
 def _distance_residual(
-    cosmo: FlatBackground,
+    cosmo: CPLBackground,
     chi: Real[ArrayLike, "*shape"],
     x: Real[ArrayLike, "*shape"],
 ) -> Float[Array, "*shape"]:
@@ -211,8 +319,8 @@ def _distance_residual(
 
 @_distance_residual.defjvp
 def _distance_residual_jvp(
-    primals: tuple[FlatBackground, Array, Array],
-    tangents: tuple[FlatBackground, Array, Array],
+    primals: tuple[CPLBackground, Array, Array],
+    tangents: tuple[CPLBackground, Array, Array],
 ) -> tuple[Array, Array]:
     """Use dchi/dx = exp(x)/H(z), retaining parameter derivatives of chi."""
     cosmo, chi, x = primals

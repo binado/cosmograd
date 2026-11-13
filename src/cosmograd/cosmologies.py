@@ -4,16 +4,17 @@ Each name is a module-level constant with its concrete class, so attribute
 access, autocompletion and :meth:`~cosmograd.FlatLCDM.with_parameters` are
 checked statically. The instances are immutable pytrees and safe to share.
 
-Parameters are those of the corresponding astropy realizations (``H0``,
-``Om0``, ``Tcmb0``, ``Neff``). They are stored as Python floats so importing
-this module does not initialise JAX and the precision follows
-``jax_enable_x64``.
+Parameters follow the corresponding astropy realizations (``H0``, ``Tcmb0``,
+``Neff``) and are stored as Python floats, so importing this module does not
+initialise JAX and the precision follows ``jax_enable_x64``.
 
 Notes
 -----
-Massless neutrinos only. The astropy realizations include one 0.06 eV massive
-neutrino, which is not modelled here, so distances agree with astropy to about 0.1% (for ``Planck18`` at ``z <= 3``) rather than
-exactly. ``omega_m`` is the total matter density, as in astropy.
+There are no massive neutrinos here, so ``omega_m`` is the total
+non-relativistic density including the neutrinos, as quoted in the papers. It
+is astropy's ``Om0 + Onu0``: astropy's ``Om0`` excludes massive neutrinos, which
+it tracks separately in ``Onu0``. Comoving distances then agree with astropy to
+about 5e-5 for ``z <= 3`` (the neutrino is treated as matter at all redshifts).
 """
 
 from collections.abc import Mapping
@@ -30,16 +31,19 @@ __all__ = [
 ]
 
 # Planck Collaboration 2014, A&A, 571, A16 (Paper XVI),
-# arXiv:1303.5076. Table 5 (Planck + WP + highL + BAO).
-Planck13: Final = FlatLCDM(H0=67.77, omega_m=0.30712, n_eff=3.046)
+# https://arxiv.org/abs/1303.5076. Table 5 (Planck + WP + highL + BAO).
+# omega_m = astropy Om0 (0.30712) + Onu0.
+Planck13: Final = FlatLCDM(H0=67.77, omega_m=0.30856, n_eff=3.046)
 """Planck 2013."""
 # Planck Collaboration 2016, A&A, 594, A13 (Paper XIII),
-# arXiv:1502.01589. Table 4 (TT, TE, EE + lowP + lensing + ext).
-Planck15: Final = FlatLCDM(H0=67.74, omega_m=0.3075, n_eff=3.046)
+# https://arxiv.org/abs/1502.01589. Table 4 (TT, TE, EE + lowP + lensing + ext).
+# omega_m = astropy Om0 (0.3075) + Onu0.
+Planck15: Final = FlatLCDM(H0=67.74, omega_m=0.30894, n_eff=3.046)
 """Planck 2015."""
 # Planck Collaboration 2020, A&A, 641, A6 (Paper VI),
-# arXiv:1807.06209. Table 2 (TT, TE, EE + lowE + lensing + BAO).
-Planck18: Final = FlatLCDM(H0=67.66, omega_m=0.30966, n_eff=3.046)
+# https://arxiv.org/abs/1807.06209. Table 2 (TT, TE, EE + lowE + lensing + BAO).
+# omega_m = astropy Om0 (0.30966) + Onu0.
+Planck18: Final = FlatLCDM(H0=67.66, omega_m=0.31110, n_eff=3.046)
 """Planck 2018."""
 
 available: Final[Mapping[str, Background]] = MappingProxyType(

@@ -8,7 +8,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from cosmograd import FlatLCDM, Perturbations
+from cosmograd import FlatW0WaCDM, Perturbations
+from cosmograd.perturbations import linear_growth
 from cosmograd.perturbations.baccoemu import BaccoEmu
 
 matter_powerspectrum = pytest.importorskip("baccoemu.matter_powerspectrum")
@@ -185,12 +186,29 @@ def test_growth_has_broadcast_shape(
     assert getattr(NU_W0WA, method)(z, k=k).shape == shape
 
 
-def test_background_is_flat_lcdm_with_neutrinos_as_matter() -> None:
+def test_background_is_flat_w0wa_cdm_with_neutrinos_as_matter() -> None:
     omega_nu = HEAVY_NU.neutrino_mass / 93.14 / HEAVY_NU.h**2
     assert isinstance(HEAVY_NU, Perturbations)
-    assert HEAVY_NU.background == FlatLCDM(
-        H0=100 * HEAVY_NU.h, omega_m=HEAVY_NU.omega_cold + omega_nu
+    assert HEAVY_NU.background == FlatW0WaCDM(
+        H0=100 * HEAVY_NU.h,
+        omega_m=HEAVY_NU.omega_cold + omega_nu,
+        w0=HEAVY_NU.w0,
+        wa=HEAVY_NU.wa,
     )
+
+
+@pytest.mark.parametrize(("w0", "wa"), [(-1.0, 0.0), (-0.8, 0.0), (-1.1, 0.3)])
+def test_growth_function_matches_ode_on_background(w0: float, wa: float) -> None:
+    cosmo = replace(LCDM, w0=w0, wa=wa)
+    z = np.linspace(0.0, 3.0, 7)
+    # The emulated growth is matter-era growth, so drop radiation from the ODE.
+    background = FlatW0WaCDM(
+        H0=100 * cosmo.h, omega_m=cosmo.omega_cold, w0=w0, wa=wa, t_cmb=0.0
+    )
+    expected, _ = linear_growth(background, z)
+    # Well inside the horizon, where dark energy perturbations do not matter.
+    growth = cosmo.growth_function(z, k=0.1)
+    np.testing.assert_allclose(growth, expected, rtol=5e-3)
 
 
 def test_pytree_leaves_are_the_given_parameters() -> None:

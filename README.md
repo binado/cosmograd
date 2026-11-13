@@ -29,6 +29,20 @@ cosmo.luminosity_distance(z)  # Mpc
 jax.jacfwd(lambda c: c.luminosity_distance(z))(cosmo)  # FlatLCDM-shaped Jacobian
 ```
 
+`FlatW0WaCDM` adds CPL dark energy, w(a) = w0 + wa (1 - a), with `w0` and `wa`
+as extra differentiable parameters:
+
+```python
+from cosmograd import FlatW0WaCDM
+
+cosmo = FlatW0WaCDM(H0=67.36, omega_m=0.3153, w0=-0.9, wa=0.2)
+jax.grad(lambda c: c.comoving_distance(1.0))(cosmo).w0
+```
+
+`EisensteinHu` accepts either background. `BaccoEmu.background` is a
+`FlatW0WaCDM` with the instance's `w0` and `wa`; `CosmoPower` is trained on
+ΛCDM and takes a `FlatLCDM` only.
+
 The native `EisensteinHu` backend provides linear matter power with EH98 baryon
 acoustic oscillations, normalised by the primordial amplitude:
 

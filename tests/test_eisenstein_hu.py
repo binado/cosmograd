@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from jax import Array
 
-from cosmograd import EisensteinHu, FlatLCDM, Perturbations
+from cosmograd import EisensteinHu, FlatLCDM, FlatW0WaCDM, Perturbations
 from cosmograd.perturbations import EisensteinHu as ExportedEisensteinHu
 
 
@@ -127,3 +127,23 @@ def test_parameter_gradients(eh: EisensteinHu) -> None:
 def test_nonlinear_rejected(eh: EisensteinHu) -> None:
     with pytest.raises(NotImplementedError, match="linear power only"):
         replace(eh, nonlinear=True)
+
+
+def test_default_w0wa_background_matches_lcdm() -> None:
+    k, z = jnp.geomspace(1e-3, 1.0, 5)[:, None], jnp.array([0.0, 1.0, 3.0])
+    lcdm = EisensteinHu(FlatLCDM(H0=67.36, omega_m=0.3153), 0.0493, 0.9649, 3.044)
+    w0wa = replace(lcdm, background=FlatW0WaCDM(H0=67.36, omega_m=0.3153))
+    np.testing.assert_allclose(
+        w0wa.matter_power_spectrum(k, z), lcdm.matter_power_spectrum(k, z)
+    )
+
+
+def test_dark_energy_changes_growth_only() -> None:
+    k = jnp.geomspace(1e-3, 1.0, 5)
+    lcdm = EisensteinHu(FlatLCDM(H0=67.36, omega_m=0.3153), 0.0493, 0.9649, 3.044)
+    background = FlatW0WaCDM(H0=67.36, omega_m=0.3153, w0=-0.8, wa=0.2)
+    w0wa = replace(lcdm, background=background)
+    ratio = w0wa.matter_power_spectrum(k, 0.5) / lcdm.matter_power_spectrum(k, 0.5)
+    # Earlier dark energy suppresses growth, by the same factor on every scale.
+    assert ratio[0] < 1
+    np.testing.assert_allclose(ratio, ratio[0])

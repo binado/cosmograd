@@ -10,7 +10,7 @@ import pytest
 from jax import Array
 from jaxtyping import Float
 
-from cosmograd import EisensteinHu, FlatLCDM, Perturbations
+from cosmograd import EisensteinHu, FlatLCDM, FlatW0WaCDM, Perturbations
 from cosmograd.background import Background
 from cosmograd.perturbations.baccoemu import BaccoEmu
 from cosmograd.perturbations.cosmopower import CosmoPower
@@ -34,7 +34,11 @@ def _requires(module: str) -> pytest.MarkDecorator:
 
 
 @pytest.fixture(
-    params=[FlatLCDM(H0=67.0, omega_m=0.31)], ids=lambda c: type(c).__name__
+    params=[
+        FlatLCDM(H0=67.0, omega_m=0.31),
+        FlatW0WaCDM(H0=67.0, omega_m=0.31, w0=-0.9, wa=0.2),
+    ],
+    ids=lambda c: type(c).__name__,
 )
 def background(request: pytest.FixtureRequest) -> Background:
     """Every in-tree background implementation; add new backends to ``params``."""

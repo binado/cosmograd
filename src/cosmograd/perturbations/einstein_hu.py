@@ -27,7 +27,7 @@ from jax import Array
 from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
-from ..background import FlatLCDM
+from ..background import FlatLCDM, FlatW0WaCDM
 from .growth import linear_growth
 
 __all__ = ["EisensteinHu"]
@@ -120,13 +120,16 @@ def _transfer(
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
 class EisensteinHu:
-    """EH98 linear perturbations on a supplied flat ΛCDM background.
+    """EH98 linear perturbations on a supplied flat background.
 
     Parameters
     ----------
-    background : FlatLCDM
+    background : FlatLCDM or FlatW0WaCDM
         Background object, retained by identity. Its Hubble constant, matter
-        density and CMB temperature set the transfer function.
+        density and CMB temperature set the transfer function, and its
+        expansion history without radiation sets the growth. Dark energy must
+        be negligible at the initial redshift of the growth ODE, which for
+        :class:`~cosmograd.FlatW0WaCDM` needs ``w0 + wa`` well below zero.
     omega_b : ArrayLike
         Baryon density today, Ω_b (not Ω_b h²), with 0 < Ω_b < Ω_m.
     n_s : ArrayLike
@@ -155,7 +158,7 @@ class EisensteinHu:
 
     __no_type_check__ = True
 
-    background: FlatLCDM
+    background: FlatLCDM | FlatW0WaCDM
     omega_b: Real[ArrayLike, "..."]
     n_s: Real[ArrayLike, "..."]
     ln10as: Real[ArrayLike, "..."]
@@ -172,7 +175,8 @@ class EisensteinHu:
         """Return matter-era growth and its rate, neglecting radiation.
 
         EH98 already captures the early radiation-era transfer. Retain the
-        late-time matter-plus-Λ growth convention by removing radiation from
+        late-time matter-plus-dark-energy growth convention by removing
+        radiation from
         the expansion passed to the ODE, while retaining it in distances.
         """
         return linear_growth(

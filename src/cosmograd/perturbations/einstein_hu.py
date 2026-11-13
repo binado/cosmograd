@@ -19,7 +19,7 @@ References
    https://arxiv.org/abs/1807.06209
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import jax
 import jax.numpy as jnp
@@ -28,10 +28,7 @@ from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
 from ..background import FlatLCDM
-from ..utils import (
-    affine_transform_gauss_legendre_nodes,
-    gauss_legendre_nodes_and_weights,
-)
+from .growth import linear_growth
 
 __all__ = ["EisensteinHu"]
 
@@ -141,12 +138,15 @@ class EisensteinHu:
 
     Notes
     -----
-    Growth neglects radiation and uses 32-point Gauss–Legendre quadrature,
-    checked for representative late-time cosmologies through z = 10.
+    Growth neglects radiation and uses a Diffrax linear growth ODE,
+    initialized with D = a in matter domination at a = 0.001.
+    Checked for representative late-time cosmologies through z = 10.
     Background distances retain the supplied background's radiation treatment.
     Massive neutrinos and nonlinear power are unsupported. Inputs are not
     validated: wavenumbers must be positive and redshifts non-negative;
-    neither needs to be sorted.
+    neither needs to be sorted. Growth is supported only through z = 999,
+    the initial redshift of the ODE (``1/a_initial - 1`` for the default
+    ``a_initial``); larger or negative redshifts return NaN.
 
     Only the background parameters and three spectral parameters are pytree
     leaves. Fields may hold batched parameters or Jacobians; evaluate one
@@ -167,45 +167,17 @@ class EisensteinHu:
             raise NotImplementedError("EisensteinHu supports linear power only")
 
     def _growth(
-        self, z: Real[ArrayLike, "*shape"]
+        self, z: Real[ArrayLike, "*shape"], *, normalize: bool = False
     ) -> tuple[Float[Array, "*shape"], Float[Array, "*shape"]]:
-        r"""Return matter-era-normalised growth and its logarithmic rate.
+        """Return matter-era growth and its rate, neglecting radiation.
 
-        The growing-mode integral of [Heath77]_, written with the normalisation
-        of [Hamilton01]_ equations (1)–(2), is
-
-        .. math::
-
-            D_{\rm md}(a) = \frac{5\Omega_m}{2} E(a) I(a), \qquad
-            I(a) = \int_0^a \frac{da'}{[a'E(a')]^3}, \qquad
-            E(a)^2 = \Omega_m a^{-3} + 1 - \Omega_m.
-
-        Here a = 1 today, and D_md approaches a in matter domination.
-        Hamilton instead sets a = 1 at the epoch of interest. The quadrature
-        substitution a' = a u² is an implementation choice. Differentiating
-        this same integral gives the rate, without finite differences:
-
-        .. math::
-
-            f(a) = -\frac{3\Omega_m a^{-3}}{2E(a)^2}
-                   + \frac{1}{a^2 E(a)^3 I(a)}.
+        EH98 already captures the early radiation-era transfer. Retain the
+        late-time matter-plus-Λ growth convention by removing radiation from
+        the expansion passed to the ODE, while retaining it in distances.
         """
-        with jax.ensure_compile_time_eval():
-            nodes, weights = gauss_legendre_nodes_and_weights(32)
-            u = affine_transform_gauss_legendre_nodes(nodes, 0.0, 1.0)
-        a = 1 / (1 + jnp.asarray(z))
-        om = jnp.asarray(self.background.omega_m)
-        # a' = a u² turns the integrand into a smooth function proportional
-        # to u⁴, including at the matter-era endpoint a' = 0.
-        ap = a[..., None] * u**2
-        integral = a**2.5 * jnp.sum(
-            weights * u**4 / (om + (1 - om) * ap**3) ** 1.5, axis=-1
+        return linear_growth(
+            replace(self.background, t_cmb=0.0), z, normalize=normalize
         )
-        e2 = om * a**-3 + 1 - om
-        e = jnp.sqrt(e2)
-        d_md = 2.5 * om * e * integral
-        rate = -1.5 * om * a**-3 / e2 + 1 / (a**2 * e**3 * integral)
-        return d_md, rate
 
     def growth_function(
         self,
@@ -229,7 +201,7 @@ class EisensteinHu:
         """
         if k is not None:
             z, _ = jnp.broadcast_arrays(z, k)
-        return self._growth(z)[0] / self._growth(0.0)[0]
+        return self._growth(z, normalize=True)[0]
 
     def growth_rate(
         self,

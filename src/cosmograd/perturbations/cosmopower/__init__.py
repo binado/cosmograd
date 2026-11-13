@@ -2,7 +2,7 @@
 
 :class:`CosmoPower` emulates the CLASS linear spectrum (probe ``mpk_lin``) and
 the HMcode nonlinear boost (probe ``mpk_boost``) of Spurio Mancini et al.
-(2022), and pairs them with a native :class:`~cosmograd.FlatLCDM` background.
+(2022), on a supplied :class:`~cosmograd.FlatLCDM` background.
 The emulators are loaded on first use and never become pytree leaves.
 """
 
@@ -22,7 +22,6 @@ from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
 from ...background import FlatLCDM
-from ..protocol import Perturbations
 
 __all__ = ["CosmoPower", "load_cosmopower"]
 
@@ -80,11 +79,11 @@ def _log_modes(probe: str) -> np.ndarray:
 
 @partial(
     jax.tree_util.register_dataclass,
-    data_fields=["h", "omega_m", "omega_b", "n_s", "ln10as", "c_min", "eta_0"],
+    data_fields=["background", "omega_b", "n_s", "ln10as", "c_min", "eta_0"],
     meta_fields=["k_growth", "nonlinear"],
 )
 @dataclass(frozen=True)
-class CosmoPower(Perturbations):
+class CosmoPower:
     """Flat :math:`\\Lambda\\mathrm{CDM}` spectra from the CosmoPower-JAX emulators.
 
     The linear spectrum comes from the ``mpk_lin`` network and the nonlinear
@@ -107,11 +106,10 @@ class CosmoPower(Perturbations):
 
     Parameters
     ----------
-    h : ArrayLike
-        Dimensionless Hubble constant, :math:`H_0 = 100\\,h` km/s/Mpc.
-    omega_m : ArrayLike
-        Matter density parameter today, :math:`\\Omega_m` (baryons plus cold
-        dark matter; neutrinos are massless).
+    background : FlatLCDM
+        Background object, retained by identity. Its Hubble constant and matter
+        density set the emulator inputs (baryons plus cold dark matter;
+        neutrinos are massless).
     omega_b : ArrayLike
         Baryon density parameter today, :math:`\\Omega_b`.
     n_s : ArrayLike
@@ -145,7 +143,9 @@ class CosmoPower(Perturbations):
       spectrum is held at its value at the nearest end.
 
     The emulators were trained on CLASS with massless neutrinos, matching the
-    radiation content of :class:`~cosmograd.FlatLCDM` at its defaults.
+    radiation content of :class:`~cosmograd.FlatLCDM` at its defaults. Custom
+    radiation settings are retained for background calculations but do not
+    affect the emulated spectra.
 
     References
     ----------
@@ -157,8 +157,7 @@ class CosmoPower(Perturbations):
     # see :class:`~cosmograd.FlatLCDM`.
     __no_type_check__ = True
 
-    h: Real[ArrayLike, ...]
-    omega_m: Real[ArrayLike, ...]
+    background: FlatLCDM
     omega_b: Real[ArrayLike, ...]
     n_s: Real[ArrayLike, ...]
     ln10as: Real[ArrayLike, ...]
@@ -166,17 +165,6 @@ class CosmoPower(Perturbations):
     eta_0: Real[ArrayLike, ...] = 0.603
     k_growth: float = 0.01
     nonlinear: bool = False
-
-    @property
-    def background(self) -> FlatLCDM:
-        """Flat :math:`\\Lambda\\mathrm{CDM}` background with the same ``h`` and ``omega_m``.
-
-        Returns
-        -------
-        FlatLCDM
-            Background with default radiation content.
-        """
-        return FlatLCDM(H0=100 * jnp.asarray(self.h), omega_m=self.omega_m)
 
     def _emulator_inputs(self, z: Array) -> dict[str, Array]:
         """Translate the parameters to CosmoPower's names, one row per redshift.
@@ -192,11 +180,15 @@ class CosmoPower(Perturbations):
             Every input name used by ``mpk_lin`` and ``mpk_boost``, each an
             array of shape ``(n,)``.
         """
-        h2 = jnp.asarray(self.h) ** 2
+        h = jnp.asarray(self.background.H0) / 100
+        h2 = h**2
         params = {
             "omega_b": jnp.asarray(self.omega_b) * h2,
-            "omega_cdm": (jnp.asarray(self.omega_m) - jnp.asarray(self.omega_b)) * h2,
-            "h": self.h,
+            "omega_cdm": (
+                jnp.asarray(self.background.omega_m) - jnp.asarray(self.omega_b)
+            )
+            * h2,
+            "h": h,
             "n_s": self.n_s,
             "ln10^{10}A_s": self.ln10as,
             "cmin": self.c_min,

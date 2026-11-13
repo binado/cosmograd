@@ -74,7 +74,7 @@ def test_growth_normalisation_and_scale_independence(eh: EisensteinHu) -> None:
 @pytest.mark.parametrize("z", [0.0, 0.5, 3.0, 10.0])
 def test_growth_rate_derivative(eh: EisensteinHu, z: float) -> None:
     derivative = jax.grad(lambda x: jnp.log(eh.growth_function(x)))(z)
-    np.testing.assert_allclose(eh.growth_rate(z), -(1 + z) * derivative, rtol=1e-10)
+    np.testing.assert_allclose(eh.growth_rate(z), -(1 + z) * derivative, rtol=1e-6)
 
 
 @pytest.mark.parametrize("z", [0.0, 0.5, 3.0, 10.0])

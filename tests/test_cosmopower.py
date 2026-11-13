@@ -1,11 +1,14 @@
 """Physics checks specific to the CosmoPower backend."""
 
+from dataclasses import replace
+
 import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 
 from cosmograd import FlatLCDM
+from cosmograd.constants import C_KM_S
 from cosmograd.perturbations.cosmopower import K_PIVOT, CosmoPower
 
 pytest.importorskip("cosmopower_jax")
@@ -13,17 +16,45 @@ pytest.importorskip("cosmopower_jax")
 
 @pytest.fixture
 def cosmo() -> CosmoPower:
-    return CosmoPower(h=0.674, omega_m=0.315, omega_b=0.0493, n_s=0.965, ln10as=3.044)
+    return CosmoPower(
+        FlatLCDM(H0=67.4, omega_m=0.315),
+        omega_b=0.0493,
+        n_s=0.965,
+        ln10as=3.044,
+    )
 
 
-def test_background_shares_parameters(cosmo: CosmoPower) -> None:
-    assert cosmo.background == FlatLCDM(H0=100 * cosmo.h, omega_m=cosmo.omega_m)
+def test_background_and_pytree(cosmo: CosmoPower) -> None:
+    bg = FlatLCDM(H0=67.4, omega_m=0.315, t_cmb=2.8)
+    cosmo = replace(cosmo, background=bg)
+    assert cosmo.background is bg
+    np.testing.assert_array_equal(
+        jax.tree_util.tree_leaves(cosmo),
+        [
+            bg.H0,
+            bg.omega_m,
+            cosmo.omega_b,
+            cosmo.n_s,
+            cosmo.ln10as,
+            cosmo.c_min,
+            cosmo.eta_0,
+        ],
+    )
+
+
+def test_background_parameter_gradients(cosmo: CosmoPower) -> None:
+    gradient = jax.jit(jax.grad(lambda c: jnp.log(c.matter_power_spectrum(0.1, 0.5))))(
+        cosmo
+    )
+    assert isinstance(gradient.background, FlatLCDM)
+    derivatives = jnp.array([gradient.background.H0, gradient.background.omega_m])
+    assert jnp.all(jnp.isfinite(derivatives) & (derivatives != 0))
 
 
 def test_sigma8_planck(cosmo: CosmoPower) -> None:
     """Planck-like parameters with massless neutrinos give sigma_8 near 0.82."""
     k = jnp.geomspace(1e-4, 5.0, 4000)
-    kr = k * 8 / cosmo.h
+    kr = k * 8 / (cosmo.background.hubble_constant * C_KM_S / 100)
     window = 3 * (jnp.sin(kr) - kr * jnp.cos(kr)) / kr**3
     integrand = k**3 * cosmo.matter_power_spectrum(k, 0.0) * window**2
     sigma8 = jnp.sqrt(jnp.trapezoid(integrand, jnp.log(k)) / (2 * np.pi**2))

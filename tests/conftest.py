@@ -71,7 +71,10 @@ class PerturbationsCase(NamedTuple):
         pytest.param(
             PerturbationsCase(
                 CosmoPower(
-                    h=0.67, omega_m=0.31, omega_b=0.049, n_s=0.965, ln10as=3.044
+                    FlatLCDM(H0=67.0, omega_m=0.31),
+                    omega_b=0.049,
+                    n_s=0.965,
+                    ln10as=3.044,
                 ),
                 k=jnp.geomspace(1e-3, 1.0, 7),
                 z=jnp.linspace(0.0, 3.0, 4),

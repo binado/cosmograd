@@ -30,16 +30,28 @@ jax.config.update("jax_enable_x64", True)
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Fetch the baccoemu emulators once, before any xdist worker starts.
+    """Fetch every baccoemu emulator once, before any test or xdist worker runs.
 
     ``baccoemu`` downloads into its install directory on first use, deleting the
-    archive after extraction, so concurrent workers would race on it.
+    archive after extraction, so concurrent workers would race on it. It also
+    disables certificate checks for its host (whose chain is incomplete) by
+    replacing ``ssl``'s default context, which ``urllib`` ignores once any other
+    download, such as cloelib's CosmoPower emulators, has built its opener. So
+    the downloads must come first. The variants are those cloelib loads.
     """
     if hasattr(config, "workerinput") or not _installed("baccoemu"):
         return
     from baccoemu.matter_powerspectrum import Matter_powerspectrum
 
     Matter_powerspectrum(baryonic_boost=False, verbose=False)
+    for nonlinear in ("Angulo2021", "Arico2023"):
+        for baryonic in ("Arico2021", "Burger2025"):
+            Matter_powerspectrum(
+                nonlinear_model_name=nonlinear,
+                baryonic_model_name=baryonic,
+                baryonic_boost=True,
+                verbose=False,
+            )
 
 
 def _installed(module: str) -> bool:

@@ -11,7 +11,7 @@ backends sit behind optional extras.
 
 ```console
 uv add cosmograd                       # core: protocols + native backgrounds and linear power
-uv add 'cosmograd[cosmopower]'         # CosmoPower-JAX backend (planned)
+uv add 'cosmograd[cosmopower]'         # CosmoPower-JAX backend
 uv add 'cosmograd[bacco]'              # bacco emulator backend
 ```
 

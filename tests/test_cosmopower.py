@@ -17,15 +17,12 @@ pytest.importorskip("cosmopower_jax")
 @pytest.fixture
 def cosmo() -> CosmoPower:
     return CosmoPower(
-        FlatLCDM(H0=67.4, omega_m=0.315),
-        omega_b=0.0493,
-        n_s=0.965,
-        ln10as=3.044,
+        FlatLCDM(H0=67.4, omega_m=0.315, omega_b=0.0493, n_s=0.965, ln10as=3.044)
     )
 
 
 def test_background_and_pytree(cosmo: CosmoPower) -> None:
-    bg = FlatLCDM(H0=67.4, omega_m=0.315, t_cmb=2.8)
+    bg = replace(cosmo.background, t_cmb=2.8)
     cosmo = replace(cosmo, background=bg)
     assert cosmo.background is bg
     np.testing.assert_array_equal(
@@ -33,9 +30,9 @@ def test_background_and_pytree(cosmo: CosmoPower) -> None:
         [
             bg.H0,
             bg.omega_m,
-            cosmo.omega_b,
-            cosmo.n_s,
-            cosmo.ln10as,
+            bg.omega_b,
+            bg.n_s,
+            bg.ln10as,
             cosmo.c_min,
             cosmo.eta_0,
         ],
@@ -63,7 +60,8 @@ def test_sigma8_planck(cosmo: CosmoPower) -> None:
 
 def test_primordial_amplitude_at_pivot(cosmo: CosmoPower) -> None:
     np.testing.assert_allclose(
-        cosmo.primordial_power_spectrum(K_PIVOT), 1e-10 * np.exp(cosmo.ln10as)
+        jnp.log(1e10 * cosmo.primordial_power_spectrum(K_PIVOT)),
+        np.asarray(cosmo.background.ln10as),
     )
 
 
@@ -71,7 +69,7 @@ def test_primordial_amplitude_at_pivot(cosmo: CosmoPower) -> None:
 def test_power_spectrum_gradient_in_amplitude(cosmo: CosmoPower, k: float) -> None:
     """The linear spectrum is proportional to A_s, so d ln P / d ln(1e10 A_s) = 1."""
     grad = jax.grad(lambda c: jnp.log(c.matter_power_spectrum(k, 1.0)))(cosmo)
-    np.testing.assert_allclose(grad.ln10as, 1.0, rtol=1e-2)
+    np.testing.assert_allclose(grad.background.ln10as, 1.0, rtol=1e-2)
 
 
 @pytest.mark.parametrize("k", [1e-2, 1e-1, 1.0])

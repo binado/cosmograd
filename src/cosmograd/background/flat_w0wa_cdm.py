@@ -15,7 +15,7 @@ __all__ = ["FlatW0WaCDM"]
 
 @partial(
     jax.tree_util.register_dataclass,
-    data_fields=["H0", "omega_m", "w0", "wa"],
+    data_fields=["H0", "omega_m", "w0", "wa", "omega_b", "n_s", "ln10as"],
     meta_fields=["t_cmb", "n_eff"],
 )
 @dataclass(frozen=True)
@@ -39,13 +39,18 @@ class FlatW0WaCDM(_Flat):
     expansion only. At the defaults ``w0 = -1`` and ``wa = 0`` this is
     :class:`~cosmograd.FlatLCDM`.
 
-    The instance is a pytree whose leaves are ``H0``, ``omega_m``, ``w0`` and
-    ``wa``; every other field is static. Methods operate on one cosmology
-    with scalar parameters; evaluate a batch of cosmologies with
-    :func:`jax.vmap`.
+    The instance is a pytree whose leaves are ``H0``, ``omega_m``, ``w0``,
+    ``wa`` and the optional parameters that are set; ``t_cmb`` and ``n_eff``
+    are static. Methods operate on one cosmology with scalar parameters;
+    evaluate a batch of cosmologies with :func:`jax.vmap`.
 
     Distances and their inverse are computed as in
     :class:`~cosmograd.FlatLCDM`.
+
+    ``omega_b``, ``n_s`` and ``ln10as`` are read only by the perturbation
+    backends, which take this object as their cosmology; no method here uses
+    them. Each is a pytree leaf when set and absent from the pytree when left
+    as ``None``.
 
     Parameters
     ----------
@@ -58,6 +63,14 @@ class FlatW0WaCDM(_Flat):
         Dark energy equation of state today.
     wa : ArrayLike, default 0.0
         Its derivative with respect to :math:`-a`.
+    omega_b : ArrayLike, optional
+        Baryon density parameter today, :math:`\\Omega_b`, part of
+        ``omega_m``.
+    n_s : ArrayLike, optional
+        Scalar spectral index.
+    ln10as : ArrayLike, optional
+        :math:`\\ln(10^{10} A_s)`, with :math:`A_s` the primordial curvature
+        amplitude at the pivot 0.05/Mpc.
     t_cmb : float, default 2.7255
         CMB temperature today in K. Static.
     n_eff : float, default 3.044
@@ -82,6 +95,9 @@ class FlatW0WaCDM(_Flat):
     omega_m: Real[ArrayLike, "..."]
     w0: Real[ArrayLike, "..."] = -1.0
     wa: Real[ArrayLike, "..."] = 0.0
+    omega_b: Real[ArrayLike, "..."] | None = None
+    n_s: Real[ArrayLike, "..."] | None = None
+    ln10as: Real[ArrayLike, "..."] | None = None
     t_cmb: float = T_CMB_FIDUCIAL
     n_eff: float = 3.044
 
@@ -92,6 +108,9 @@ class FlatW0WaCDM(_Flat):
         omega_m: Real[ArrayLike, "..."] | None = None,
         w0: Real[ArrayLike, "..."] | None = None,
         wa: Real[ArrayLike, "..."] | None = None,
+        omega_b: Real[ArrayLike, "..."] | None = None,
+        n_s: Real[ArrayLike, "..."] | None = None,
+        ln10as: Real[ArrayLike, "..."] | None = None,
         t_cmb: float | None = None,
         n_eff: float | None = None,
     ) -> "FlatW0WaCDM":
@@ -99,7 +118,8 @@ class FlatW0WaCDM(_Flat):
 
         Parameters left as ``None`` keep their current value. The signature
         lists only the parameters of this model, so a parameter the model
-        fixes is rejected by static checkers.
+        fixes is rejected by static checkers. To unset ``omega_b``, ``n_s`` or
+        ``ln10as``, use :func:`dataclasses.replace`.
 
         Returns
         -------
@@ -108,5 +128,15 @@ class FlatW0WaCDM(_Flat):
         """
         return replace(
             self,
-            **_given(H0=H0, omega_m=omega_m, w0=w0, wa=wa, t_cmb=t_cmb, n_eff=n_eff),
+            **_given(
+                H0=H0,
+                omega_m=omega_m,
+                w0=w0,
+                wa=wa,
+                omega_b=omega_b,
+                n_s=n_s,
+                ln10as=ln10as,
+                t_cmb=t_cmb,
+                n_eff=n_eff,
+            ),
         )

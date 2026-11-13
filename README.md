@@ -53,10 +53,24 @@ cosmo = W0WaCDM(H0=67.36, omega_m=0.3153, omega_k=0.02)
 cosmo.luminosity_distance(z)
 ```
 
-The perturbation backends below assume a flat universe and take the flat
-classes only. `EisensteinHu` accepts either flat background. `BaccoEmu.background` is a
-`FlatW0WaCDM` with the instance's `w0` and `wa`; `CosmoPower` is trained on
-ΛCDM and takes a `FlatLCDM` only.
+Every class also takes the optional `omega_b`, `n_s` and `ln10as`, so that one
+object holds the whole cosmology. No background method reads them, and left
+unset they are not part of the pytree. Standard cosmologies carry them:
+
+```python
+from cosmograd.cosmologies import Planck18
+
+Planck18.luminosity_distance(z)
+Planck18.with_parameters(omega_m=0.30)  # a modified copy
+```
+
+Here `omega_b` is Ω_b today, with `0 < omega_b < omega_m`, and `ln10as` is
+ln(10¹⁰ A_s) at the pivot 0.05/Mpc.
+
+The perturbation backends below take such a cosmology plus their own settings,
+and raise `ValueError` when a spectrum needs a parameter that is unset. They
+assume a flat universe: `EisensteinHu` and `BaccoEmu` accept either flat class;
+`CosmoPower` is trained on ΛCDM and takes a `FlatLCDM` only.
 
 The native `EisensteinHu` backend provides linear matter power with EH98 baryon
 acoustic oscillations, normalised by the primordial amplitude:
@@ -64,18 +78,16 @@ acoustic oscillations, normalised by the primordial amplitude:
 ```python
 from cosmograd import EisensteinHu
 
-pert = EisensteinHu(cosmo, omega_b=0.0493, n_s=0.9649, ln10as=3.044)
+pert = EisensteinHu(Planck18)
 k = jnp.geomspace(1e-4, 1.0, 100)  # 1/Mpc
-pert.background is cosmo  # True
+pert.background is Planck18  # True
 pert.matter_power_spectrum(k, z[:, None])  # Mpc^3, shape (20, 100)
 pert.growth_function(z)  # normalised to 1 at z = 0
-jax.grad(lambda p: p.matter_power_spectrum(0.1, 0.5))(
-    pert
-)  # nested parameter gradients
+# One FlatLCDM-shaped gradient over H0, omega_m, omega_b, n_s and ln10as.
+jax.grad(lambda c: EisensteinHu(c).matter_power_spectrum(0.1, 0.5))(Planck18)
 ```
 
-Here `omega_b` is Ω_b today, with `0 < omega_b < cosmo.omega_m`, and `ln10as`
-is ln(10¹⁰ A_s) at the pivot 0.05/Mpc. Growth is scale independent and neglects
+Growth is scale independent and neglects
 radiation, using a Diffrax ODE initialized with D = a at a = 0.001 and checked
 through z = 10; background distances retain radiation. Massive neutrinos are
 unsupported, and constructing with `nonlinear=True` raises
@@ -114,20 +126,19 @@ constructor's `nonlinear` option, which defaults to `False` for every backend:
 ```python
 from cosmograd.perturbations.baccoemu import BaccoEmu
 
-pert = BaccoEmu(
-    h=0.67,
-    omega_cold=0.315,
-    omega_baryon=0.05,
-    ns=0.96,
-    sigma8_cold=0.8,
-    nonlinear=True,
-)
+pert = BaccoEmu(Planck18, nonlinear=True)
 k = jnp.geomspace(1e-3, 3.0, 100)  # 1/Mpc
 z = jnp.linspace(0.0, 1.5, 16)
 pert.check_bounds(k, z)  # eager check of the training ranges
 pert.matter_power_spectrum(k, z[:, None])  # Mpc^3, shape (16, 100)
 pert.linear_matter_power_spectrum(k, z[:, None])  # linear, whatever `nonlinear` is
 ```
+
+`BaccoEmu` also takes `neutrino_mass` (the cosmology's `omega_m` is then the
+total matter density, Ω_cb + Ω_ν) and `sigma8_cold`, which sets the amplitude
+in place of the cosmology's `ln10as`. With the `cosmopower` extra,
+`CosmoPower(Planck18, c_min=3.13, eta_0=0.603, nonlinear=True)` works the same
+way, with the HMcode feedback parameters as its own differentiable fields.
 
 Units: distances in Mpc, wavenumbers in 1/Mpc, H in 1/Mpc (c = 1), power spectra
 in Mpc^3. Inputs are not validated; each method documents the range it expects.

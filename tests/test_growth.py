@@ -20,7 +20,7 @@ from cosmograd.perturbations import linear_growth
 
 @partial(
     jax.tree_util.register_dataclass,
-    data_fields=["H0", "omega_m", "w"],
+    data_fields=["H0", "omega_m", "omega_b", "n_s", "ln10as", "w"],
     meta_fields=["t_cmb", "n_eff"],
 )
 @dataclass(frozen=True)
@@ -139,7 +139,9 @@ bg = FlatLCDM(H0=70.0, omega_m=1.0, t_cmb=0.0)
 d, f = linear_growth(bg, np.array([0.0, 1.0, 10.0]))
 np.testing.assert_allclose(d, [1.0, 0.5, 1 / 11], rtol=1e-4)
 np.testing.assert_allclose(f, 1.0, rtol=1e-4)
-eh = EisensteinHu(FlatLCDM(H0=67.36, omega_m=0.3153), 0.0493, 0.9649, 3.044)
+eh = EisensteinHu(
+    FlatLCDM(H0=67.36, omega_m=0.3153, omega_b=0.0493, n_s=0.9649, ln10as=3.044)
+)
 assert 0 < eh.growth_function(1.0) < 1
 assert np.isfinite(eh.matter_power_spectrum(0.1, 1.0))
 assert not jax.config.jax_enable_x64

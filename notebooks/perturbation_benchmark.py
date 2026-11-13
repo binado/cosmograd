@@ -105,21 +105,19 @@ print(f"h={h}, ombh2={ombh2:.7f}, omch2={omch2:.7f}, A_s={A_s:.7g}")
 # ## Backend construction
 
 # %%
-background = FlatLCDM(H0=H0, omega_m=omega_m, t_cmb=t_cmb, n_eff=n_eff)
-eh = EisensteinHu(background, omega_b=omega_b, n_s=n_s, ln10as=ln10as)
-cp_linear = CosmoPower(background, omega_b=omega_b, n_s=n_s, ln10as=ln10as)
-cp_nonlinear = replace(cp_linear, nonlinear=True, c_min=c_min, eta_0=eta_0)
-bacco_linear = BaccoEmu(
-    h=h,
-    omega_cold=omega_m,
-    omega_baryon=omega_b,
-    ns=n_s,
-    A_s=A_s,
-    neutrino_mass=neutrino_mass,
-    w0=w0,
-    wa=wa,
-    model_name=bacco_model,
+cosmology = FlatLCDM(
+    H0=H0,
+    omega_m=omega_m,
+    omega_b=omega_b,
+    n_s=n_s,
+    ln10as=ln10as,
+    t_cmb=t_cmb,
+    n_eff=n_eff,
 )
+eh = EisensteinHu(cosmology)
+cp_linear = CosmoPower(cosmology)
+cp_nonlinear = replace(cp_linear, nonlinear=True, c_min=c_min, eta_0=eta_0)
+bacco_linear = BaccoEmu(cosmology, neutrino_mass=neutrino_mass, model_name=bacco_model)
 bacco_nonlinear = replace(bacco_linear, nonlinear=True)
 bacco_linear.check_bounds(k, z)
 bacco_nonlinear.check_bounds(k, z)

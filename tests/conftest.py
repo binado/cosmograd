@@ -45,6 +45,10 @@ def background(request: pytest.FixtureRequest) -> Background:
     return request.param
 
 
+COSMOLOGY = FlatLCDM(H0=67.0, omega_m=0.31, omega_b=0.049, n_s=0.965, ln10as=3.044)
+"""A cosmology inside every backend's supported range."""
+
+
 class PerturbationsCase(NamedTuple):
     """A perturbations backend with inputs inside its documented range."""
 
@@ -60,12 +64,7 @@ class PerturbationsCase(NamedTuple):
     params=[
         pytest.param(
             PerturbationsCase(
-                EisensteinHu(
-                    FlatLCDM(H0=67.0, omega_m=0.31),
-                    omega_b=0.049,
-                    n_s=0.965,
-                    ln10as=3.044,
-                ),
+                EisensteinHu(COSMOLOGY),
                 k=jnp.geomspace(1e-4, 1.0, 7),
                 z=jnp.linspace(0.0, 10.0, 4),
                 supports_nonlinear=False,
@@ -74,12 +73,7 @@ class PerturbationsCase(NamedTuple):
         ),
         pytest.param(
             PerturbationsCase(
-                CosmoPower(
-                    FlatLCDM(H0=67.0, omega_m=0.31),
-                    omega_b=0.049,
-                    n_s=0.965,
-                    ln10as=3.044,
-                ),
+                CosmoPower(COSMOLOGY),
                 k=jnp.geomspace(1e-3, 1.0, 7),
                 z=jnp.linspace(0.0, 3.0, 4),
             ),
@@ -88,13 +82,7 @@ class PerturbationsCase(NamedTuple):
         ),
         pytest.param(
             PerturbationsCase(
-                BaccoEmu(
-                    h=0.67,
-                    omega_cold=0.31,
-                    omega_baryon=0.049,
-                    ns=0.965,
-                    sigma8_cold=0.81,
-                ),
+                BaccoEmu(COSMOLOGY),
                 k=jnp.geomspace(1e-3, 1.0, 7),
                 z=jnp.linspace(0.0, 1.5, 4),
             ),

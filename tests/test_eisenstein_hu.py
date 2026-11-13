@@ -11,42 +11,46 @@ from jax import Array
 from cosmograd import EisensteinHu, FlatLCDM, FlatW0WaCDM, Perturbations
 from cosmograd.perturbations import EisensteinHu as ExportedEisensteinHu
 
+PLANCK = FlatLCDM(H0=67.36, omega_m=0.3153, omega_b=0.0493, n_s=0.9649, ln10as=3.044)
+
 
 @pytest.fixture(
     params=[
-        EisensteinHu(FlatLCDM(H0=67.36, omega_m=0.3153), 0.0493, 0.9649, 3.044),
-        EisensteinHu(FlatLCDM(H0=72.0, omega_m=0.25), 0.04, 1.0, 3.1),
-        EisensteinHu(FlatLCDM(H0=62.0, omega_m=0.4, t_cmb=2.8), 0.07, 0.94, 2.9),
+        PLANCK,
+        FlatLCDM(H0=72.0, omega_m=0.25, omega_b=0.04, n_s=1.0, ln10as=3.1),
+        FlatLCDM(H0=62.0, omega_m=0.4, omega_b=0.07, n_s=0.94, ln10as=2.9, t_cmb=2.8),
     ],
     ids=["planck", "low-matter", "high-matter"],
 )
 def eh(request: pytest.FixtureRequest) -> EisensteinHu:
-    return request.param
+    return EisensteinHu(request.param)
 
 
 def test_background_and_pytree(eh: EisensteinHu) -> None:
     bg = eh.background
-    cosmo = EisensteinHu(bg, eh.omega_b, eh.n_s, eh.ln10as)
+    cosmo = EisensteinHu(bg)
     assert cosmo.background is bg
     assert isinstance(cosmo, Perturbations)
     assert ExportedEisensteinHu is EisensteinHu
     np.testing.assert_array_equal(
         jax.tree_util.tree_leaves(cosmo),
-        [bg.H0, bg.omega_m, eh.omega_b, eh.n_s, eh.ln10as],
+        [bg.H0, bg.omega_m, bg.omega_b, bg.n_s, bg.ln10as],
     )
     with pytest.raises(FrozenInstanceError):
-        setattr(cosmo, "n_s", 1.0)
+        setattr(cosmo, "nonlinear", True)
 
 
 def test_primordial_pivot(eh: EisensteinHu) -> None:
     np.testing.assert_allclose(
-        eh.primordial_power_spectrum(0.05), 1e-10 * np.exp(eh.ln10as)
+        jnp.log(1e10 * eh.primordial_power_spectrum(0.05)),
+        np.asarray(eh.background.ln10as),
     )
 
 
 @pytest.mark.parametrize("factor", [0.5, 2.0])
 def test_amplitude_scaling(eh: EisensteinHu, factor: float) -> None:
-    scaled = replace(eh, ln10as=eh.ln10as + np.log(factor))
+    bg = eh.background
+    scaled = EisensteinHu(bg.with_parameters(ln10as=bg.ln10as + np.log(factor)))
     k, z = jnp.array([0.001, 0.05, 0.2]), jnp.array([0.0, 1.0, 10.0])
     np.testing.assert_allclose(
         scaled.matter_power_spectrum(k, z), factor * eh.matter_power_spectrum(k, z)
@@ -79,7 +83,7 @@ def test_growth_rate_derivative(eh: EisensteinHu, z: float) -> None:
 
 @pytest.mark.parametrize("z", [0.0, 0.5, 3.0, 10.0])
 def test_matter_only_growth(z: float) -> None:
-    eh = EisensteinHu(FlatLCDM(H0=70.0, omega_m=1.0), 0.05, 0.96, 3.0)
+    eh = EisensteinHu(FlatLCDM(H0=70.0, omega_m=1.0))
     np.testing.assert_allclose(eh.growth_function(z), 1 / (1 + z), rtol=1e-10)
     np.testing.assert_allclose(eh.growth_rate(z), 1.0, rtol=1e-10)
 
@@ -105,7 +109,7 @@ def test_jit_and_vmap(eh: EisensteinHu, method: str) -> None:
     expected = evaluate(eh, x)
     np.testing.assert_allclose(jax.jit(evaluate)(eh, x), expected)
     np.testing.assert_allclose(jax.vmap(evaluate, in_axes=(None, 0))(eh, x), expected)
-    second = replace(eh, background=replace(eh.background, omega_m=0.33), n_s=0.97)
+    second = EisensteinHu(eh.background.with_parameters(omega_m=0.33, n_s=0.97))
     batch = jax.tree_util.tree_map(lambda a, b: jnp.stack([a, b]), eh, second)
     np.testing.assert_allclose(
         jax.jit(jax.vmap(evaluate, in_axes=(0, None)))(batch, x),
@@ -121,7 +125,7 @@ def test_parameter_gradients(eh: EisensteinHu) -> None:
     leaves = jnp.array(jax.tree_util.tree_leaves(gradient))
     assert leaves.shape == (5,)
     assert jnp.all(jnp.isfinite(leaves) & (leaves != 0))
-    np.testing.assert_allclose(gradient.ln10as, 1.0)
+    np.testing.assert_allclose(gradient.background.ln10as, 1.0)
 
 
 def test_nonlinear_rejected(eh: EisensteinHu) -> None:
@@ -129,10 +133,22 @@ def test_nonlinear_rejected(eh: EisensteinHu) -> None:
         replace(eh, nonlinear=True)
 
 
+def _as_w0wa(cosmo: FlatLCDM, w0: float = -1.0, wa: float = 0.0) -> FlatW0WaCDM:
+    return FlatW0WaCDM(
+        H0=cosmo.H0,
+        omega_m=cosmo.omega_m,
+        w0=w0,
+        wa=wa,
+        omega_b=cosmo.omega_b,
+        n_s=cosmo.n_s,
+        ln10as=cosmo.ln10as,
+    )
+
+
 def test_default_w0wa_background_matches_lcdm() -> None:
     k, z = jnp.geomspace(1e-3, 1.0, 5)[:, None], jnp.array([0.0, 1.0, 3.0])
-    lcdm = EisensteinHu(FlatLCDM(H0=67.36, omega_m=0.3153), 0.0493, 0.9649, 3.044)
-    w0wa = replace(lcdm, background=FlatW0WaCDM(H0=67.36, omega_m=0.3153))
+    lcdm = EisensteinHu(PLANCK)
+    w0wa = EisensteinHu(_as_w0wa(PLANCK))
     np.testing.assert_allclose(
         w0wa.matter_power_spectrum(k, z), lcdm.matter_power_spectrum(k, z)
     )
@@ -140,9 +156,8 @@ def test_default_w0wa_background_matches_lcdm() -> None:
 
 def test_dark_energy_changes_growth_only() -> None:
     k = jnp.geomspace(1e-3, 1.0, 5)
-    lcdm = EisensteinHu(FlatLCDM(H0=67.36, omega_m=0.3153), 0.0493, 0.9649, 3.044)
-    background = FlatW0WaCDM(H0=67.36, omega_m=0.3153, w0=-0.8, wa=0.2)
-    w0wa = replace(lcdm, background=background)
+    lcdm = EisensteinHu(PLANCK)
+    w0wa = EisensteinHu(_as_w0wa(PLANCK, w0=-0.8, wa=0.2))
     ratio = w0wa.matter_power_spectrum(k, 0.5) / lcdm.matter_power_spectrum(k, 0.5)
     # Earlier dark energy suppresses growth, by the same factor on every scale.
     assert ratio[0] < 1

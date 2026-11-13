@@ -11,6 +11,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from cosmograd import FlatLCDM
+
 from .conftest import PerturbationsCase
 
 
@@ -57,6 +59,15 @@ def test_linear_power_is_independent_of_nonlinear_mode(
         perturbations_case.cosmo.linear_matter_power_spectrum(k, z),
         linear.matter_power_spectrum(k, z),
     )
+
+
+def test_spectrum_needs_perturbation_parameters(
+    perturbations_case: PerturbationsCase,
+) -> None:
+    cosmo, k, z = perturbations_case[:3]
+    distances_only = replace(cosmo, background=FlatLCDM(H0=67.0, omega_m=0.31))
+    with pytest.raises(ValueError, match="omega_b"):
+        distances_only.matter_power_spectrum(k, z[:, None])
 
 
 def test_nonlinear_mode_is_static(perturbations_case: PerturbationsCase) -> None:

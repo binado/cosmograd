@@ -321,17 +321,11 @@ class BaccoEmu(Perturbations):
             :math:`P(k, z)` in :math:`\\mathrm{Mpc}^3`, with the broadcast
             shape of ``k`` and ``z``.
         """
-        emu = self._emulator
-        h = self._param("h")
-        k_h = self._k_h(k)
-        log_k_lin = np.log(emu.k_lin)
-        pk_h = jnp.exp(
-            self._evaluate(
-                lambda zi: self._log_pk_lin(self._bacco_params(zi)), log_k_lin, k_h, z
-            )
-        )
+        pk = self.linear_matter_power_spectrum(k, z)
         if not self.nonlinear:
-            return pk_h / h**3
+            return pk
+        emu = self._emulator
+        k_h = self._k_h(k)
 
         def boost(zi: Float[Array, ""]) -> Float[Array, " k_nl"]:
             p = self._bacco_params(zi)
@@ -341,7 +335,38 @@ class BaccoEmu(Perturbations):
 
         q = self._evaluate(boost, np.log(emu.k_nl), k_h, z)
         q = jnp.where(k_h < emu.k_nl[0], 1.0, q)
-        return q * pk_h / h**3
+        return q * pk
+
+    def linear_matter_power_spectrum(
+        self,
+        k: Real[ArrayLike, "*#shape"],
+        z: Real[ArrayLike, "*#shape"],
+    ) -> Float[Array, "*shape"]:
+        """Linear matter power spectrum, total or cold per ``cold``.
+
+        The same whatever ``nonlinear`` is.
+
+        Parameters
+        ----------
+        k : ArrayLike
+            Wavenumber in 1/Mpc, positive.
+        z : ArrayLike
+            Redshift, non-negative. Broadcast elementwise against ``k``.
+
+        Returns
+        -------
+        Array
+            :math:`P_\\mathrm{lin}(k, z)` in :math:`\\mathrm{Mpc}^3`, with the
+            broadcast shape of ``k`` and ``z``.
+        """
+        log_k_lin = np.log(self._emulator.k_lin)
+        log_pk_h = self._evaluate(
+            lambda zi: self._log_pk_lin(self._bacco_params(zi)),
+            log_k_lin,
+            self._k_h(k),
+            z,
+        )
+        return jnp.exp(log_pk_h) / self._param("h") ** 3
 
     def primordial_power_spectrum(
         self,

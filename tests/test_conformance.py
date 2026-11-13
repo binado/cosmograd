@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from dataclasses import replace
 
 import jax.numpy as jnp
 import pytest
@@ -40,9 +39,4 @@ def test_perturbations_conformance(
     perturbations_case: PerturbationsCase, layout: Layout
 ) -> None:
     k, z = layout(perturbations_case.k, perturbations_case.z)
-    check_perturbations(
-        perturbations_case.cosmo,
-        k,
-        z,
-        linear_cosmo=replace(perturbations_case.cosmo, nonlinear=False),
-    )
+    check_perturbations(perturbations_case.cosmo, k, z)

@@ -80,7 +80,7 @@ radiation, using a Diffrax ODE initialized with D = a at a = 0.001 and checked
 through z = 10; background distances retain radiation. Massive neutrinos are
 unsupported, and constructing with `nonlinear=True` raises
 `NotImplementedError`. For protocol checks on this backend, use
-`check_perturbations(pert, k, 0.5, linear_cosmo=pert)`.
+`check_perturbations(pert, k, 0.5)`.
 
 The reusable growth solver accepts any differentiable `Background`:
 
@@ -126,6 +126,7 @@ k = jnp.geomspace(1e-3, 3.0, 100)  # 1/Mpc
 z = jnp.linspace(0.0, 1.5, 16)
 pert.check_bounds(k, z)  # eager check of the training ranges
 pert.matter_power_spectrum(k, z[:, None])  # Mpc^3, shape (16, 100)
+pert.linear_matter_power_spectrum(k, z[:, None])  # linear, whatever `nonlinear` is
 ```
 
 Units: distances in Mpc, wavenumbers in 1/Mpc, H in 1/Mpc (c = 1), power spectra

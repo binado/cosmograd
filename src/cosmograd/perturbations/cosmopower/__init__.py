@@ -271,6 +271,28 @@ class CosmoPower:
         """
         return jnp.exp(self._log_power(k, z, self.nonlinear))
 
+    def linear_matter_power_spectrum(
+        self,
+        k: Real[ArrayLike, "*#shape"],
+        z: Real[ArrayLike, "*#shape"],
+    ) -> Float[Array, "*shape"]:
+        """Linear matter power spectrum, whatever ``nonlinear`` is.
+
+        Parameters
+        ----------
+        k : ArrayLike
+            Wavenumber in 1/Mpc, positive.
+        z : ArrayLike
+            Redshift in ``[0, 5]``. Broadcast elementwise against ``k``.
+
+        Returns
+        -------
+        Array
+            :math:`P_\\mathrm{lin}(k, z)` in :math:`\\mathrm{Mpc}^3`, with the
+            broadcast shape of ``k`` and ``z``.
+        """
+        return jnp.exp(self._log_power(k, z, False))
+
     def _growth_k(self, k: ArrayLike | None) -> Array:
         """Wavenumber to evaluate growth at, broadcast against ``z``."""
         return jnp.asarray(self.k_growth if k is None else k, dtype=float)

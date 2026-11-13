@@ -1,6 +1,6 @@
 """Curved background with a cosmological constant."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 
 import jax
@@ -8,7 +8,7 @@ from jax.typing import ArrayLike
 from jaxtyping import Real
 
 from ..constants import T_CMB_FIDUCIAL
-from ._base import _Lambda
+from ._base import _given, _Lambda
 
 __all__ = ["LCDM"]
 
@@ -68,3 +68,28 @@ class LCDM(_Lambda):
     omega_k: Real[ArrayLike, "..."] = 0.0
     t_cmb: float = T_CMB_FIDUCIAL
     n_eff: float = 3.044
+
+    def with_parameters(
+        self,
+        *,
+        H0: Real[ArrayLike, "..."] | None = None,
+        omega_m: Real[ArrayLike, "..."] | None = None,
+        omega_k: Real[ArrayLike, "..."] | None = None,
+        t_cmb: float | None = None,
+        n_eff: float | None = None,
+    ) -> "LCDM":
+        """Return a copy with the given parameters replaced.
+
+        Parameters left as ``None`` keep their current value. The signature
+        lists only the parameters of this model, so a parameter the model
+        fixes is rejected by static checkers.
+
+        Returns
+        -------
+        LCDM
+            A new instance; ``self`` is unchanged.
+        """
+        return replace(
+            self,
+            **_given(H0=H0, omega_m=omega_m, omega_k=omega_k, t_cmb=t_cmb, n_eff=n_eff),
+        )

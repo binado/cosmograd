@@ -1,6 +1,7 @@
 """The user-level cache of bacco weights, served from local archives."""
 
 import hashlib
+import logging
 import tarfile
 from pathlib import Path
 
@@ -38,7 +39,7 @@ def dirs(tmp_path: Path) -> tuple[Path, Path]:
     return tmp_path / "cache", target
 
 
-def test_downloads_into_cache_and_links(
+def test_fetch_emulators_missing_downloads_to_cache_and_links(
     archive_dir: Path, checksums: dict[str, str], dirs: tuple[Path, Path]
 ) -> None:
     cache, target = dirs
@@ -51,7 +52,7 @@ def test_downloads_into_cache_and_links(
     assert not [path for path in cache.iterdir() if path.name.startswith(".tmp-")]
 
 
-def test_relinks_from_cache_without_downloading(
+def test_fetch_emulators_cached_relinks_without_downloading(
     archive_dir: Path, checksums: dict[str, str], dirs: tuple[Path, Path]
 ) -> None:
     """A rebuilt environment loses the links, not the weights."""
@@ -66,7 +67,7 @@ def test_relinks_from_cache_without_downloading(
     assert (target / NAME / "details.pickle").is_file()
 
 
-def test_keeps_existing_install(
+def test_fetch_emulators_existing_install_is_left_alone(
     checksums: dict[str, str], dirs: tuple[Path, Path]
 ) -> None:
     """Weights ``baccoemu`` already holds are used as they are."""
@@ -79,7 +80,7 @@ def test_keeps_existing_install(
     assert not cache.exists()
 
 
-def test_rejects_mismatched_checksum(
+def test_fetch_emulators_wrong_checksum_raises_and_leaves_no_trace(
     archive_dir: Path, dirs: tuple[Path, Path]
 ) -> None:
     cache, target = dirs
@@ -93,3 +94,30 @@ def test_rejects_mismatched_checksum(
         )
     assert not (cache / NAME).exists()
     assert not (target / NAME).exists()
+
+
+def test_fetch_emulators_download_logs_location_once(
+    archive_dir: Path,
+    checksums: dict[str, str],
+    dirs: tuple[Path, Path],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cache, target = dirs
+    with caplog.at_level(logging.INFO):
+        fetch_emulators(
+            [NAME],
+            target,
+            cache=cache,
+            base_url=archive_dir.as_uri(),
+            checksums=checksums,
+        )
+        fetch_emulators(
+            [NAME],
+            target,
+            cache=cache,
+            base_url=archive_dir.as_uri(),
+            checksums=checksums,
+        )
+    assert [record.getMessage() for record in caplog.records] == [
+        f"Downloading bacco emulator {NAME} to {cache}"
+    ]

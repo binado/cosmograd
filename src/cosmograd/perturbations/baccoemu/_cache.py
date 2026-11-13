@@ -3,9 +3,9 @@
 ``baccoemu`` downloads its weights into its own install directory on first use,
 which is lost whenever the environment is rebuilt, is not writable on every
 system, and races when several processes start at once. Here the weights are
-instead fetched once into ``$XDG_CACHE_HOME/cosmograd/baccoemu`` (``~/.cache``
-if unset) and symlinked into the folder where ``baccoemu`` looks for them.
-``baccoemu`` finds them present and never downloads.
+instead fetched once into the platform's user cache directory and symlinked
+into the folder where ``baccoemu`` looks for them. ``baccoemu`` finds them
+present and never downloads.
 
 Downloads are checked against pinned SHA-256 digests. The ``bacco.dipc.org``
 certificate chain is incomplete, so when verification fails the download is
@@ -13,7 +13,7 @@ retried without it and the digest is what vouches for the file.
 """
 
 import hashlib
-import os
+import logging
 import shutil
 import ssl
 import tarfile
@@ -23,6 +23,8 @@ import urllib.request
 import warnings
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+
+import platformdirs
 
 __all__ = [
     "BASE_URL",
@@ -65,6 +67,8 @@ CHECKSUMS = {
 
 _TIMEOUT = 60.0
 
+logger = logging.getLogger(__name__)
+
 
 def cache_dir() -> Path:
     """Directory holding the cached weights.
@@ -72,11 +76,11 @@ def cache_dir() -> Path:
     Returns
     -------
     Path
-        ``$XDG_CACHE_HOME/cosmograd/baccoemu``, or ``~/.cache/cosmograd/baccoemu``
-        when ``XDG_CACHE_HOME`` is unset or empty.
+        ``baccoemu`` inside the user cache directory of ``cosmograd``, such as
+        ``~/.cache/cosmograd/baccoemu`` on Linux (honouring ``XDG_CACHE_HOME``)
+        or ``~/Library/Caches/cosmograd/baccoemu`` on macOS.
     """
-    root = os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"
-    return Path(root) / "cosmograd" / "baccoemu"
+    return Path(platformdirs.user_cache_dir("cosmograd")) / "baccoemu"
 
 
 def fetch_emulators(
@@ -152,6 +156,7 @@ def _link(link: Path, source: Path) -> None:
 def _download(name: str, destination: Path, url: str, sha256: str) -> None:
     """Download and unpack one archive to ``destination``, atomically."""
     destination.parent.mkdir(parents=True, exist_ok=True)
+    logger.info("Downloading bacco emulator %s to %s", name, destination.parent)
     # Staging inside the cache keeps the final rename on one filesystem.
     with tempfile.TemporaryDirectory(dir=destination.parent, prefix=".tmp-") as tmp:
         archive = Path(tmp) / f"{name}.tar"

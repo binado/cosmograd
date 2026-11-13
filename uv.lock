@@ -490,6 +490,7 @@ dependencies = [
 [package.optional-dependencies]
 bacco = [
     { name = "baccoemu" },
+    { name = "platformdirs" },
 ]
 cosmopower = [
     { name = "cosmopower-jax" },
@@ -537,6 +538,7 @@ requires-dist = [
     { name = "jax", specifier = ">=0.10" },
     { name = "jaxtyping", specifier = ">=0.3.11" },
     { name = "numpy", specifier = ">=2.5.4" },
+    { name = "platformdirs", marker = "extra == 'bacco'", specifier = ">=4.0" },
 ]
 provides-extras = ["cosmopower", "bacco"]
 

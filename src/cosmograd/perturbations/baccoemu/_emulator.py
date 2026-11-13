@@ -160,8 +160,7 @@ def _check_keys(name: str, got: list[str], expected: tuple[str, ...]) -> None:
 def load_emulator(model_name: ModelName = "Angulo2021") -> Emulator:
     """Load the bacco emulators, downloading the weights on first use.
 
-    The weights are kept in ``$XDG_CACHE_HOME/cosmograd/baccoemu`` (see
-    ``_cache``) and symlinked into ``baccoemu``'s install directory. Results
+    The weights are kept in the user cache directory (see ``_cache``) and symlinked into ``baccoemu``'s install directory. Results
     are cached per ``model_name``.
 
     Parameters

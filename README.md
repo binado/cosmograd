@@ -121,7 +121,10 @@ reverse-mode parameter derivatives are supported. EH keeps its `FlatLCDM`
 transfer-function inputs and supplies a radiation-free expansion to this solver.
 
 With the `bacco` extra, `BaccoEmu` emulates linear and nonlinear matter power
-spectra (weights are downloaded on first use). Select the spectrum with the
+spectra. Weights are downloaded on first use into
+`$XDG_CACHE_HOME/cosmograd/baccoemu` (`~/.cache` if unset), checked against
+pinned SHA-256 digests and symlinked into `baccoemu`'s install directory, so
+they survive rebuilding the environment. Select the spectrum with the
 constructor's `nonlinear` option, which defaults to `False` for every backend:
 
 ```python

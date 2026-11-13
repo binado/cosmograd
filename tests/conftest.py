@@ -24,6 +24,7 @@ from cosmograd import (
 from cosmograd import cosmologies as standard_cosmologies
 from cosmograd.background import Background
 from cosmograd.perturbations.baccoemu import BaccoEmu
+from cosmograd.perturbations.baccoemu._emulator import load_emulator
 from cosmograd.perturbations.cosmopower import CosmoPower
 
 jax.config.update("jax_enable_x64", True)
@@ -32,9 +33,10 @@ jax.config.update("jax_enable_x64", True)
 def pytest_configure(config: pytest.Config) -> None:
     """Fetch every baccoemu emulator once, before any test or xdist worker runs.
 
-    ``baccoemu`` downloads into its install directory on first use, deleting the
-    archive after extraction, so concurrent workers would race on it. It also
-    disables certificate checks for its host (whose chain is incomplete) by
+    The emulators cosmograd uses go through its own cache, which is safe under
+    concurrency. The baryonic ones are only needed by cloelib, which loads them
+    through ``baccoemu``'s downloader. That downloads into the install
+    directory, racing between workers, and disables certificate checks by
     replacing ``ssl``'s default context, which ``urllib`` ignores once any other
     download, such as cloelib's CosmoPower emulators, has built its opener. So
     the downloads must come first. The variants are those cloelib loads.
@@ -43,6 +45,8 @@ def pytest_configure(config: pytest.Config) -> None:
         return
     from baccoemu.matter_powerspectrum import Matter_powerspectrum
 
+    for model in ("Angulo2021", "Arico2023"):
+        load_emulator(model)
     Matter_powerspectrum(baryonic_boost=False, verbose=False)
     for nonlinear in ("Angulo2021", "Arico2023"):
         for baryonic in ("Arico2021", "Burger2025"):

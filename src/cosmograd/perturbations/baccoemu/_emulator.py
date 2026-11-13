@@ -7,6 +7,7 @@ as NumPy arrays so they enter traced code as constants, never as pytree leaves.
 
 import importlib
 from functools import cache
+from pathlib import Path
 from types import ModuleType
 from typing import Literal, NamedTuple, Protocol, runtime_checkable
 
@@ -14,6 +15,8 @@ import jax
 import numpy as np
 from jax import Array
 from jaxtyping import Float
+
+from ._cache import NONLINEAR_EMULATORS, fetch_emulators
 
 __all__ = [
     "LINEAR_KEYS",
@@ -157,7 +160,9 @@ def _check_keys(name: str, got: list[str], expected: tuple[str, ...]) -> None:
 def load_emulator(model_name: ModelName = "Angulo2021") -> Emulator:
     """Load the bacco emulators, downloading the weights on first use.
 
-    Results are cached per ``model_name``.
+    The weights are kept in ``$XDG_CACHE_HOME/cosmograd/baccoemu`` (see
+    ``_cache``) and symlinked into ``baccoemu``'s install directory. Results
+    are cached per ``model_name``.
 
     Parameters
     ----------
@@ -177,6 +182,16 @@ def load_emulator(model_name: ModelName = "Angulo2021") -> Emulator:
         If the installed ``baccoemu`` uses a layout this port does not know.
     """
     mp = load_baccoemu().matter_powerspectrum
+    fetch_emulators(
+        [
+            "cold_matter_linear_emu_1.0.2",
+            "total_matter_linear_emu_1.0.2",
+            "sigma8_emu_2.0.2",
+            "no_wiggles_emu_1.0.2",
+            NONLINEAR_EMULATORS[model_name],
+        ],
+        Path(mp.__file__).parent,
+    )
     lin = mp.load_linear_emu(verbose=False)
     s8 = mp.load_sigma8_emu(verbose=False)
     nw = mp.load_no_wiggles_emu(verbose=False)

@@ -11,8 +11,8 @@ Conventions shared by every implementation:
 - One cosmology per object; ``k`` and ``z`` broadcast elementwise. Batch over
   cosmologies with :func:`jax.vmap`.
 - A cosmology is a pytree whose only leaves are its parameters. A
-  :class:`typing.Protocol` cannot express this, so it is checked by
-  :mod:`cosmograd.testing` instead.
+  :class:`typing.Protocol` cannot express this, so each implementation has to
+  uphold it.
 """
 
 from typing import Protocol, runtime_checkable

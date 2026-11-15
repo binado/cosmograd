@@ -39,26 +39,10 @@ class W0WaCDM(CPLBackground):
         \\exp\\!\\left(-\\frac{3 w_a z}{1 + z}\\right),
 
     with :math:`\\Omega_\\mathrm{de} = 1 - \\Omega_m - \\Omega_r - \\Omega_k`.
-    Radiation is photons plus ``n_eff`` massless neutrino species, fixed by
-    ``t_cmb``. Massive neutrinos are not included. Dark energy is smooth: it
-    enters the expansion only.
 
     This is the most general background; :class:`~cosmograd.LCDM`,
     :class:`~cosmograd.FlatW0WaCDM` and :class:`~cosmograd.FlatLCDM` fix some
     of its parameters.
-
-    The instance is a pytree whose leaves are ``H0``, ``omega_m``,
-    ``omega_k``, ``w0``, ``wa`` and ``omega_b``,
-    ``n_s`` and ``ln10as``;
-    ``t_cmb`` and ``n_eff`` are static. Methods operate on one cosmology with
-    scalar parameters; evaluate a batch of cosmologies with :func:`jax.vmap`.
-
-    Distances use 32-point Gauss–Legendre quadrature in
-    :math:`\\ln(1 + z)`. The inverse relation uses a fixed number of Newton
-    iterations in the same coordinate, with implicit differentiation through
-    :func:`jax.lax.custom_root` and an analytic residual derivative. The
-    inverse is of the line-of-sight distance :math:`\\chi`, not of the
-    transverse distance.
 
     ``omega_b``, ``n_s`` and ``ln10as`` are read only by the perturbation
     backends, which take this object as their cosmology; no method here uses
@@ -94,16 +78,6 @@ class W0WaCDM(CPLBackground):
         CMB temperature today in K. Static.
     n_eff : float, default 3.044
         Effective number of massless neutrino species. Static.
-
-    Notes
-    -----
-    No method validates its inputs. Redshifts and distances are expected to be
-    non-negative. The early-time equation of state is :math:`w_0 + w_a`; it
-    should be negative, and well below zero for dark energy to be negligible
-    in the matter era, which
-    :func:`~cosmograd.perturbations.linear_growth` assumes for its initial
-    conditions. The fixed iteration budget of the inverse does not guarantee
-    convergence for arbitrary parameters or distances.
     """
 
     # Tells jaxtyping's import hook not to check the generated ``__init__``

@@ -80,7 +80,7 @@ test = [
 
 [tool.pytest.ini_options]
 addopts = "-ra --jaxtyping-packages=cosmograd,tests.typecheck"
-markers = ["slow: comparisons against Boltzmann codes or emulators (deselect with -m 'not slow')"]
+markers = ["slow: comparisons against Boltzmann codes or emulators, and the Fisher-matrix test (deselect with -m 'not slow')"]
 testpaths = ["tests"]
 
 [tool.ruff]

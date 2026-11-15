@@ -60,6 +60,3 @@ available: Final[Mapping[str, Background]] = MappingProxyType(
         "Planck18": Planck18,
     }
 )
-"""Read-only registry of the constants above by name, for iteration and
-configuration. It is typed as :class:`~cosmograd.Background`; import the
-constants directly to keep the concrete type."""

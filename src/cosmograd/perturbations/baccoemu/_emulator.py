@@ -1,17 +1,17 @@
 """Loading the bacco network weights.
 
-``baccoemu`` is used only here, once per model, to download and read the
-trained weights. Everything downstream is pure ``jax.numpy``. Weights are kept
-as NumPy arrays so they enter traced code as constants, never as pytree leaves.
+``baccoemu`` loads the trained models and evaluates them in float32 using
+its native JAX callables. Cached models enter traced code as constants,
+never as pytree leaves.
 """
 
 import importlib
+from collections.abc import Callable
 from functools import cache
 from pathlib import Path
 from types import ModuleType
-from typing import Literal, NamedTuple, Protocol, runtime_checkable
+from typing import Literal, NamedTuple
 
-import jax
 import numpy as np
 from jax import Array
 from jaxtyping import Float
@@ -27,14 +27,13 @@ __all__ = [
     "ModelName",
     "load_baccoemu",
     "load_emulator",
-    "mlp_apply",
 ]
 
 ModelName = Literal["Angulo2021", "Arico2023"]
 """Nonlinear emulators shipped with ``baccoemu``."""
 
-MLP = tuple[tuple[np.ndarray, np.ndarray], ...]
-"""Dense ReLU network as ``((W_0, b_0), ..., (W_n, b_n))``; last layer is linear."""
+MLP = Callable[[Float[Array, " n_in"]], Float[Array, " n_out"]]
+"""Native bacco network callable; evaluates in float32."""
 
 LINEAR_KEYS = (
     "omega_cold",
@@ -110,17 +109,6 @@ class Emulator(NamedTuple):
     bounds_linear: np.ndarray
     bounds_sigma8: np.ndarray
     bounds_nonlinear: np.ndarray
-
-
-@runtime_checkable
-class _KerasLikeModel(Protocol):
-    """``baccoemu.utils.load_model``: holds a list of ``(kernel, bias)`` pairs."""
-
-    params: list[tuple[np.ndarray, np.ndarray]]
-
-
-def _mlp(model: _KerasLikeModel) -> MLP:
-    return tuple((np.asarray(w), np.asarray(b)) for w, b in model.params)
 
 
 def load_baccoemu() -> ModuleType:
@@ -207,14 +195,14 @@ def load_emulator(model_name: ModelName = "Angulo2021") -> Emulator:
         raise ValueError("Output scalers with a std are not supported.")
 
     return Emulator(
-        sigma8=_mlp(s8["model"]),
-        linear_cold=_mlp(lin["model_cold"]),
+        sigma8=s8["model"],
+        linear_cold=lin["model_cold"],
         linear_cold_mean=np.asarray(lin["scaler_cold"].mean),
-        linear_total=_mlp(lin["model_tot"]),
+        linear_total=lin["model_tot"],
         linear_total_mean=np.asarray(lin["scaler_tot"].mean),
-        no_wiggles=_mlp(nw["model"]),
+        no_wiggles=nw["model"],
         no_wiggles_mean=np.asarray(nw["scaler"].mean),
-        nonlinear=_mlp(nl["model"]),
+        nonlinear=nl["model"],
         nonlinear_mean=np.asarray(nl["scaler"].mean),
         k_lin=np.asarray(lin["k"], dtype=np.float64),
         k_nl=np.asarray(nl["k"], dtype=np.float64),
@@ -222,25 +210,3 @@ def load_emulator(model_name: ModelName = "Angulo2021") -> Emulator:
         bounds_sigma8=np.asarray(s8["bounds"], dtype=np.float64),
         bounds_nonlinear=np.asarray(nl["bounds"], dtype=np.float64),
     )
-
-
-def mlp_apply(mlp: MLP, x: Float[Array, " n_in"]) -> Float[Array, " n_out"]:
-    """Evaluate a dense ReLU network with a linear output layer.
-
-    Parameters
-    ----------
-    mlp : MLP
-        Layer weights and biases.
-    x : Array
-        Input of shape ``(n_in,)``.
-
-    Returns
-    -------
-    Array
-        Output of shape ``(n_out,)``, in the precision of ``x`` (the weights
-        are float32 and promote to it).
-    """
-    for w, b in mlp[:-1]:
-        x = jax.nn.relu(x @ w + b)
-    w, b = mlp[-1]
-    return x @ w + b

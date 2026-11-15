@@ -1,7 +1,7 @@
 """JAX port of the bacco emulators. Needs the ``bacco`` extra.
 
-The network evaluation is pure JAX; ``baccoemu`` itself is used only to
-download and load the weights, on first use.
+The native ``baccoemu`` networks evaluate in float32 using JAX. Weights
+are downloaded and models loaded on first use.
 """
 
 from ._cosmology import BaccoEmu

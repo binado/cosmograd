@@ -6,8 +6,9 @@
 - `uv run prek install`: enable local commit hooks.
 - `just fmt`: apply Ruff lint fixes and formatting.
 - `just lint` and `just typecheck`: run Ruff and ty checks.
-- `just test`: run pytest in parallel (pytest-xdist, `-n auto`); use `just test tests/test_background.py -k gradient` for focused checks.
-- `just test -m "not slow"`: skip the comparisons against CAMB, cloelib and jax-cosmo.
+- `just test`: run pytest in parallel (pytest-xdist, `-n auto`); use `just test tests/background/test_identities.py -k inverse` for focused checks.
+- `just test -m "not slow"`: skip the comparisons against CAMB, cloelib and jax-cosmo,
+  and the Fisher-matrix test.
   These live in the `ref` dependency group (part of `dev`); each test skips itself
   when its reference is not installed. cloelib downloads its CosmoPower emulators
   from GitHub on first use.
@@ -19,15 +20,20 @@ is unavailable.
 
 ## Code styleguide
 
+- Be minimal on code comments. A comment explains the code that is there now: an invariant it must maintain, a non-obvious reason it has to be this way, a constraint a future editor would otherwise break. Write every comment so it still reads correctly to someone who has only the repository in front of them — no plan, no chat log, no memory of how the code came to be. If a sentence only makes sense to someone who watched the code being written, it does not belong in the source.
 - Add type annotations and follow existing NumPy-style docstrings
 - Prefer common jax design patterns
 - Prefer documenting conventions in docstrings than enforcing array argument validation
 
 ## Testing styleguide
 
+- `tests/background/` and `tests/perturbations/` hold the tests of each protocol.
+  Each has a `reference.py` that wraps an independent implementation (closed forms,
+  CAMB, jax-cosmo, cloelib) in the protocol's method names, so one test body
+  compares any pair. The reference cosmologies live in `tests/cosmologies.py`.
 - Use pytest with `test_*.py` files and `test_*` functions.
 - Use pytest fixtures for shared setup and objects under test, putting fixtures
-used by several files in `tests/conftest.py`
+used by several files in a `conftest.py` at the shallowest directory they share
 - Use `@pytest.mark.parametrize` (or parametrized fixtures) to vary inputs and
 implementations, not loops or hand-rolled helpers inside a test
 - Avoid tests that repeat the function implementation

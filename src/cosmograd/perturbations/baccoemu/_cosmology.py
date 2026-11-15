@@ -38,8 +38,7 @@ _GROWTH_WEIGHTS = _GROWTH_STENCIL / np.sum(_GROWTH_STENCIL**2)
 
 _Table = Callable[[Float[Array, ""]], Float[Array, " grid"]]
 
-# Python floats would be weakly typed and demoted to float32 by the weights;
-# cast to the default float dtype so precision follows ``jax_enable_x64``.
+# Parameter transformations outside the networks follow ``jax_enable_x64``.
 _float = partial(jnp.asarray, dtype=float)
 
 
@@ -54,9 +53,9 @@ class BaccoEmu:
 
     A differentiable JAX port of ``baccoemu.Matter_powerspectrum`` (Aricò et
     al. 2021; Angulo et al. 2021) with its default settings: no-wiggles BAO
-    smearing and no baryonic boost. The ``bacco`` extra is needed only to
-    download the network weights, which are cached per ``model_name`` and
-    never become pytree leaves.
+    smearing and no baryonic boost. The ``bacco`` extra provides the native
+    JAX networks, evaluated in float32. Models are cached per ``model_name``
+    and never become pytree leaves.
 
     ``k`` and ``z`` broadcast elementwise. The networks run once per element
     of ``z`` (before broadcasting), so pass ``z`` with the smallest shape that

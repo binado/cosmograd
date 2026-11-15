@@ -11,7 +11,7 @@ from jax import Array
 from cosmograd import EisensteinHu, FlatLCDM, FlatW0WaCDM, Perturbations
 from cosmograd.perturbations import EisensteinHu as ExportedEisensteinHu
 
-from .conftest import camb_results
+from .background.reference import camb_results
 from .cosmologies import Cosmology, cosmology_params
 
 PLANCK = FlatLCDM(H0=67.36, omega_m=0.3153, omega_b=0.0493, n_s=0.9649, ln10as=3.044)

@@ -171,7 +171,7 @@ The `EisensteinHu` calculations follow:
   convention.
 
 Equation references also appear beside the corresponding calculations in
-`src/cosmograd/perturbations/einstein_hu.py`.
+`src/cosmograd/perturbations/eisenstein_hu.py`.
 
 ## Setup
 

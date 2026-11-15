@@ -92,8 +92,7 @@ Growth is scale independent and neglects
 radiation, using a Diffrax ODE initialized with $D = a$ at $a = 0.001$ and checked
 through $z = 10$; background distances retain radiation. Massive neutrinos are
 unsupported, and constructing with `nonlinear=True` raises
-`NotImplementedError`. For protocol checks on this backend, use
-`check_perturbations(pert, k, 0.5)`.
+`NotImplementedError`.
 
 The reusable growth solver accepts any differentiable `Background`:
 
@@ -146,14 +145,6 @@ way, with the HMcode feedback parameters as its own differentiable fields.
 
 Units: distances in Mpc, wavenumbers in $\mathrm{Mpc}^{-1}$, $H$ in $\mathrm{Mpc}^{-1}$
 ($c = 1$), power spectra in $\mathrm{Mpc}^3$. Inputs are not validated; each method documents the range it expects.
-
-To check your own implementation against the contract:
-
-```python
-from cosmograd.testing import check_background
-
-check_background(MyBackground(...), z=jnp.linspace(0.0, 3.0, 50))
-```
 
 ## Calculation references
 

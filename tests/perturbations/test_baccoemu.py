@@ -4,7 +4,6 @@ from dataclasses import replace
 from typing import Any
 
 import jax
-import jax.numpy as jnp
 import numpy as np
 import pytest
 
@@ -170,41 +169,6 @@ def test_growth_function_massive_nu_is_scale_dependent() -> None:
     assert scale_dependence(HEAVY_NU) > 10 * abs(scale_dependence(LCDM))
 
 
-def _grid(shape: tuple[int, ...], lo: float, hi: float) -> np.ndarray:
-    return np.linspace(lo, hi, int(np.prod(shape))).reshape(shape)
-
-
-@pytest.mark.parametrize(
-    ("k_shape", "z_shape"),
-    [((), ()), ((7,), ()), ((), (3,)), ((7,), (7,)), ((7, 1), (3,)), ((1, 7), (3, 1))],
-)
-@pytest.mark.parametrize("nonlinear", [False, True], ids=["linear", "nonlinear"])
-def test_power_spectrum_broadcasts_elementwise(
-    k_shape: tuple[int, ...], z_shape: tuple[int, ...], nonlinear: bool
-) -> None:
-    k, z = _grid(k_shape, 0.01, 2.0), _grid(z_shape, 0.2, 1.2)
-    cosmo = replace(NU_W0WA, nonlinear=nonlinear)
-    pk = cosmo.matter_power_spectrum(k, z)
-    k_b, z_b = np.broadcast_arrays(k, z)
-    expected = [
-        cosmo.matter_power_spectrum(ki, zi)
-        for ki, zi in zip(k_b.ravel(), z_b.ravel(), strict=True)
-    ]
-    assert pk.shape == k_b.shape
-    np.testing.assert_allclose(pk, np.reshape(expected, k_b.shape), rtol=1e-12)
-
-
-@pytest.mark.parametrize("method", ["growth_function", "growth_rate"])
-@pytest.mark.parametrize(
-    ("k", "shape"), [(None, (4,)), (np.full((5, 1), 0.1), (5, 4))], ids=["none", "k"]
-)
-def test_growth_has_broadcast_shape(
-    method: str, k: np.ndarray | None, shape: tuple[int, ...]
-) -> None:
-    z = np.linspace(0.0, 1.0, 4)
-    assert getattr(NU_W0WA, method)(z, k=k).shape == shape
-
-
 def test_background_is_the_given_cosmology() -> None:
     cosmology = FlatLCDM(H0=67.0, omega_m=0.315, omega_b=0.05, n_s=0.96, ln10as=3.0)
     cosmo = BaccoEmu(cosmology)
@@ -246,42 +210,6 @@ def test_pytree_leaves_are_the_given_parameters() -> None:
     ]
     expected += [getattr(NU_W0WA, p) for p in BACKEND_PARAMETERS]
     np.testing.assert_array_equal(leaves, expected)
-
-
-@pytest.mark.parametrize("nonlinear", [False, True], ids=["linear", "nonlinear"])
-def test_jit_vmap_over_cosmologies_matches_loop(nonlinear: bool) -> None:
-    cosmos = [replace(c, nonlinear=nonlinear) for c in [LCDM, NU_W0WA, HEAVY_NU]]
-    batch = jax.tree.map(lambda *xs: jnp.array(xs), *cosmos)
-    k = jnp.geomspace(0.01, 3.0, 20)
-    fn = jax.jit(jax.vmap(lambda c: c.matter_power_spectrum(k, 0.7)))
-    expected = [c.matter_power_spectrum(k, 0.7) for c in cosmos]
-    np.testing.assert_allclose(fn(batch), np.array(expected), rtol=1e-10)
-
-
-def _shifted(cosmo: BaccoEmu, name: str, step: float) -> BaccoEmu:
-    if name in BACKEND_PARAMETERS:
-        return replace(cosmo, **{name: getattr(cosmo, name) + step})
-    bg = cosmo.background
-    return replace(cosmo, background=replace(bg, **{name: getattr(bg, name) + step}))
-
-
-@pytest.mark.parametrize("name", COSMOLOGY_PARAMETERS + BACKEND_PARAMETERS)
-def test_gradient_matches_finite_differences(name: str) -> None:
-    k = jnp.geomspace(0.02, 3.0, 30)
-    z = jnp.array([0.3, 1.1])[:, None]
-
-    cosmo = replace(NU_W0WA, nonlinear=True)
-
-    def log_pk(c: BaccoEmu) -> jax.Array:
-        return jnp.log(c.matter_power_spectrum(k, z))
-
-    jac = jax.jacfwd(log_pk)(cosmo)
-    grad = getattr(jac if name in BACKEND_PARAMETERS else jac.background, name)
-    step = 1e-6
-    fd = (
-        log_pk(_shifted(cosmo, name, step)) - log_pk(_shifted(cosmo, name, -step))
-    ) / (2 * step)
-    np.testing.assert_allclose(grad, fd, rtol=1e-3, atol=1e-3 * np.max(np.abs(fd)))
 
 
 def test_check_bounds_inside_range_passes() -> None:

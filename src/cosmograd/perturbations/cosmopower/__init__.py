@@ -1,6 +1,6 @@
 """CosmoPower-JAX matter power spectrum. Needs the ``cosmopower`` extra.
 
-:class:`CosmoPower` emulates the CLASS linear spectrum (probe ``mpk_lin``) and
+:class:`CosmoPower` emulates the CLASS linear spectrum and
 the HMcode nonlinear boost (probe ``mpk_boost``) of Spurio Mancini et al.
 (2022), for a supplied :class:`~cosmograd.FlatLCDM` cosmology.
 The emulators are loaded on first use and never become pytree leaves.
@@ -97,12 +97,6 @@ class CosmoPower:
     :math:`f = -\\tfrac{1}{2}(1 + z)\\,\\partial_z \\ln P(k, z)` by automatic
     differentiation. Without ``k`` both are evaluated at ``k_growth``, where
     the emulated growth is scale independent.
-
-    The instance is a pytree whose leaves are those of the cosmology plus
-    ``c_min`` and ``eta_0``; ``k_growth`` and ``nonlinear`` are static. The emulator networks are
-    module-level constants, never leaves.
-    Methods operate on one cosmology with scalar parameters; batch with
-    :func:`jax.vmap`.
 
     Parameters
     ----------

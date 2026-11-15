@@ -10,9 +10,6 @@ Conventions shared by every implementation:
 - ``(k, z)`` order whenever both are positional.
 - One cosmology per object; ``k`` and ``z`` broadcast elementwise. Batch over
   cosmologies with :func:`jax.vmap`.
-- A cosmology is a pytree whose only leaves are its parameters. A
-  :class:`typing.Protocol` cannot express this, so each implementation has to
-  uphold it.
 """
 
 from typing import Protocol, runtime_checkable
@@ -28,12 +25,7 @@ __all__ = ["Perturbations"]
 
 @runtime_checkable
 class Perturbations(Protocol):
-    """Linear growth and power spectra on top of a :class:`Background`.
-
-    The contract does not say whether the matter power spectrum factorises
-    into a function of ``k`` times a function of ``z``. Consumers that need the
-    factorised form check for it themselves.
-    """
+    """Linear growth and power spectra on top of a :class:`Background`."""
 
     @property
     def background(self) -> Background:

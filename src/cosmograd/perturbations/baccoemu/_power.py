@@ -7,15 +7,42 @@ spectra in (Mpc/h)^3, as in ``baccoemu``.
 
 The nonlinear pipeline:
 
-1. Linear emulator: P_lin(k) on ``k_lin``.
-2. No-wiggles emulator: P_nw = ratio * P_lin, the ratio forced to 1 for
-   k > 0.8 h/Mpc.
-3. Smeared BAO: P_smeared = G P_lin + (1 - G) P_nw with
-   G = exp(-k^2 sigma_*^2 / 2) and sigma_*^2 = int k P_lin dlnk / (3 pi^2).
-4. Nonlinear emulator: P_nl,cold = Q P_smeared on ``k_nl``. For total matter,
-   P_nl,tot = (1 - f_nu)^2 (P_nl,cold - P_lin,cold) + P_lin,tot.
-5. The boost P_nl / P_lin is interpolated linearly in ln k and set to 1 below
-   ``k_nl[0]``; it multiplies P_lin interpolated in ln k - ln P.
+1. Linear emulator returns :math:`P_{\\rm lin}(k)` on ``k_lin``.
+2. No-wiggles emulator:
+
+   .. math::
+
+       P_{\\rm nw}(k) = \\mathrm{ratio}(k) P_{\\rm lin}(k),
+
+   with the ratio forced to 1 for :math:`k > 0.8\\,h\\,\\mathrm{Mpc}^{-1}`.
+3. Smeared BAO:
+
+   .. math::
+
+       P_{\\rm smeared}(k) = G(k) P_{\\rm lin}(k) + [1 - G(k)] P_{\\rm nw}(k),
+       \\qquad
+       G(k) = \\exp\\left(-\\frac{k^2 \\sigma_*^2}{2}\\right),
+
+   where
+
+   .. math::
+
+       \\sigma_*^2 = \\frac{1}{3\\pi^2} \\int k P_{\\rm lin}(k) \\mathrm{d}\\ln k.
+4. Nonlinear emulator:
+
+   .. math::
+
+       P_{\\rm nl,cold}(k) = Q(k) P_{\\rm smeared}(k)
+
+   on ``k_nl``. For total matter,
+
+   .. math::
+
+       P_{\\rm nl,tot}(k) = (1 - f_\\nu)^2
+       [P_{\\rm nl,cold}(k) - P_{\\rm lin,cold}(k)] + P_{\\rm lin,tot}(k).
+5. The boost :math:`P_{\\rm nl}/P_{\\rm lin}` is interpolated linearly in
+   :math:`\\ln k` and set to 1 below ``k_nl[0]``; it multiplies
+   :math:`P_{\\rm lin}` interpolated in :math:`\\ln k`–:math:`\\ln P`.
 """
 
 from collections.abc import Mapping

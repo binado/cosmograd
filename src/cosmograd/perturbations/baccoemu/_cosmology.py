@@ -58,12 +58,6 @@ class BaccoEmu:
     download the network weights, which are cached per ``model_name`` and
     never become pytree leaves.
 
-    The instance is a pytree whose leaves are those of the cosmology plus
-    ``neutrino_mass`` and, when set, ``sigma8_cold``; ``model_name``, ``cold``
-    and ``nonlinear`` are static. Parameters may be traced, so differentiate
-    with respect to the instance directly, e.g.
-    ``jax.jacfwd(lambda c: c.matter_power_spectrum(k, z))(cosmo)``.
-
     ``k`` and ``z`` broadcast elementwise. The networks run once per element
     of ``z`` (before broadcasting), so pass ``z`` with the smallest shape that
     broadcasts against ``k``.

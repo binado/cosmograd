@@ -27,31 +27,10 @@ __all__ = ["FlatW0WaCDM"]
 class FlatW0WaCDM(_Flat):
     """Flat background with radiation and CPL dark energy.
 
-    This is :class:`~cosmograd.W0WaCDM` with :math:`\\Omega_k = 0` fixed. The
-    dark energy equation of state is :math:`w(a) = w_0 + w_a (1 - a)`
-    (Chevallier & Polarski 2001; Linder 2003), whose density evolves in
-    closed form, so the expansion rate is
-
-    .. math::
-
-        E^2(z) = \\Omega_m (1 + z)^3 + \\Omega_r (1 + z)^4
-        + \\Omega_\\mathrm{de} (1 + z)^{3 (1 + w_0 + w_a)}
-        \\exp\\!\\left(-\\frac{3 w_a z}{1 + z}\\right),
-
-    with :math:`\\Omega_\\mathrm{de} = 1 - \\Omega_m - \\Omega_r`. Radiation is
-    photons plus ``n_eff`` massless neutrino species, fixed by ``t_cmb``.
-    Massive neutrinos are not included. Dark energy is smooth: it enters the
-    expansion only. At the defaults ``w0 = -1`` and ``wa = 0`` this is
-    :class:`~cosmograd.FlatLCDM`.
-
     The instance is a pytree whose leaves are ``H0``, ``omega_m``, ``w0``,
     ``wa`` and ``omega_b``,
     ``n_s`` and ``ln10as``; ``t_cmb`` and ``n_eff``
-    are static. Methods operate on one cosmology with scalar parameters;
-    evaluate a batch of cosmologies with :func:`jax.vmap`.
-
-    Distances and their inverse are computed as in
-    :class:`~cosmograd.FlatLCDM`.
+    are static.
 
     ``omega_b``, ``n_s`` and ``ln10as`` are read only by the perturbation
     backends, which take this object as their cosmology; no method here uses
@@ -84,16 +63,6 @@ class FlatW0WaCDM(_Flat):
         CMB temperature today in K. Static.
     n_eff : float, default 3.044
         Effective number of massless neutrino species. Static.
-
-    Notes
-    -----
-    No method validates its inputs. Redshifts and distances are expected to be
-    non-negative. The early-time equation of state is :math:`w_0 + w_a`; it
-    should be negative, and well below zero for dark energy to be negligible
-    in the matter era, which
-    :func:`~cosmograd.perturbations.linear_growth` assumes for its initial
-    conditions. The fixed iteration budget of the inverse does not guarantee
-    convergence for arbitrary parameters or distances.
     """
 
     # See FlatLCDM: keep jaxtyping from checking the generated ``__init__``,

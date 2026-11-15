@@ -33,21 +33,7 @@ _NEWTON_ITERATIONS = 7
 
 
 class CPLBackground(Background):
-    """Background with matter, radiation, curvature and CPL dark energy.
-
-    Not public. Subclasses are dataclasses registered as pytrees. Each
-    provides ``H0``, ``omega_m``, ``t_cmb``, ``n_eff``, ``omega_k``, ``w0`` and
-    ``wa``, either as fields or, for a constrained model, as constants through
-    :class:`_Flat` and :class:`_Lambda`. Everything else follows from the
-    general expansion rate in :meth:`efunc`. Radiation is photons plus
-    ``n_eff`` massless neutrino species, fixed by ``t_cmb``, and dark energy
-    closes the universe.
-
-    Distances use 32-point Gauss–Legendre quadrature in
-    :math:`\\ln(1 + z)`. The inverse relation uses a fixed number of Newton
-    iterations in the same coordinate, with implicit differentiation through
-    :func:`jax.lax.custom_root` and an analytic residual derivative.
-    """
+    """Background with matter, radiation, curvature and CPL dark energy."""
 
     # Declared as read-only properties for static checkers only: subclasses
     # are frozen dataclasses, whose fields cannot override writable attributes.

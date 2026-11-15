@@ -56,7 +56,6 @@ from ._emulator import (
     NONLINEAR_KEYS,
     SIGMA8_KEYS,
     Emulator,
-    mlp_apply,
 )
 
 __all__ = [
@@ -130,7 +129,7 @@ def amplitudes(emu: Emulator, p: Params) -> tuple[Float[Array, ""], Float[Array,
     A_s, sigma8_cold : Array
         Both amplitudes, scalars. ``sigma8_cold`` is at z = 0.
     """
-    sigma8_ref = mlp_apply(emu.sigma8, _stack(p, SIGMA8_KEYS))[0]
+    sigma8_ref = emu.sigma8(_stack(p, SIGMA8_KEYS))[0]
     if "A_s" in p:
         return p["A_s"], sigma8_ref * jnp.sqrt(p["A_s"] / AS_REF)
     return AS_REF * (p["sigma8_cold"] / sigma8_ref) ** 2, p["sigma8_cold"]
@@ -158,7 +157,7 @@ def linear_log_pk(emu: Emulator, p: Params, *, cold: bool) -> Float[Array, " k_l
         if cold
         else (emu.linear_total, emu.linear_total_mean)
     )
-    log_pk = mlp_apply(mlp, _stack(p, LINEAR_KEYS)) + mean
+    log_pk = mlp(_stack(p, LINEAR_KEYS)) + mean
     log_tilt = (p["ns"] - 1.0) * jnp.log(emu.k_lin * p["hubble"] / K_PIVOT)
     return log_pk + jnp.log(p["A_s"] / AS_REF) + log_tilt
 
@@ -197,7 +196,7 @@ def nonlinear_boost(
     pk_cold = jnp.exp(log_pk_cold)
     pk_cold_nl = jnp.exp(interp_extrap(log_k_nl, log_k_lin, log_pk_cold))
 
-    log_ratio = mlp_apply(emu.no_wiggles, _stack(p, LINEAR_KEYS)) + emu.no_wiggles_mean
+    log_ratio = emu.no_wiggles(_stack(p, LINEAR_KEYS)) + emu.no_wiggles_mean
     log_ratio = jnp.where(emu.k_lin > _K_NOWIGGLE_MAX, 0.0, log_ratio)
     ratio_nl = jnp.exp(jnp.interp(log_k_nl, log_k_lin, log_ratio, left=0.0, right=0.0))
 
@@ -207,7 +206,7 @@ def nonlinear_boost(
 
     lo, hi = emu.bounds_nonlinear[:, 0], emu.bounds_nonlinear[:, 1]
     x_nl = (_stack(p, NONLINEAR_KEYS) - lo) / (hi - lo)
-    q = jnp.exp(mlp_apply(emu.nonlinear, x_nl) + emu.nonlinear_mean)
+    q = jnp.exp(emu.nonlinear(x_nl) + emu.nonlinear_mean)
     if cold:
         return q * pk_smeared / pk_cold_nl
 

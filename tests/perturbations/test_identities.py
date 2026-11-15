@@ -38,7 +38,8 @@ def test_power_spectrum_on_outer_grid_matches_elementwise_calls(
     outer = cosmo.matter_power_spectrum(k[:, None], z[None, :])
     k_b, z_b = jnp.broadcast_arrays(k[:, None], z[None, :])
     elementwise = cosmo.matter_power_spectrum(k_b.ravel(), z_b.ravel())
-    np.testing.assert_allclose(outer.ravel(), elementwise)
+    # Float32 emulator networks can round differently with the batch shape.
+    np.testing.assert_allclose(outer.ravel(), elementwise, rtol=1e-5)
 
 
 def test_growth_function_is_one_today(perturbations_case: PerturbationsCase) -> None:

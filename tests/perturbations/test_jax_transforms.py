@@ -56,7 +56,8 @@ def test_power_spectrum_under_vmap_over_cosmologies_matches_loop(
     batch = jax.tree.map(lambda a, b: jnp.stack([a, b]), first, second)
     actual = jax.jit(jax.vmap(lambda c: c.matter_power_spectrum(k[:, None], z)))(batch)
     expected = [c.matter_power_spectrum(k[:, None], z) for c in (first, second)]
-    np.testing.assert_allclose(actual, np.array(expected))
+    # Float32 emulator networks can round differently under batched evaluation.
+    np.testing.assert_allclose(actual, np.array(expected), rtol=1e-5)
 
 
 def test_log_power_spectrum_has_finite_nonzero_gradient_in_every_parameter(

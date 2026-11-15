@@ -16,7 +16,7 @@ from ..constants import (
     T_CMB_FIDUCIAL,
 )
 from ..utils import (
-    affine_transform_gauss_legendre_nodes,
+    affine_transform_gauss_legendre_nodes_and_weights,
     gauss_legendre_nodes_and_weights,
 )
 from .protocol import Background
@@ -164,9 +164,11 @@ class CPLBackground(Background):
         with jax.ensure_compile_time_eval():
             nodes, weights = gauss_legendre_nodes_and_weights(32)
         length = jnp.log1p(jnp.asarray(z))
-        x = affine_transform_gauss_legendre_nodes(nodes, jnp.zeros_like(length), length)
+        x, weights = affine_transform_gauss_legendre_nodes_and_weights(
+            nodes, weights, jnp.zeros_like(length), length
+        )
         integrand = jnp.exp(x) / self.hubble_parameter(jnp.expm1(x))
-        return 0.5 * length * jnp.sum(weights * integrand, axis=-1)
+        return jnp.sum(weights * integrand, axis=-1)
 
     def transverse_comoving_distance(
         self,

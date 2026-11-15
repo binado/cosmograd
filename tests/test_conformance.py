@@ -4,16 +4,17 @@ import jax.numpy as jnp
 import pytest
 from jax import Array
 
-from cosmograd.background import Background
 from cosmograd.testing import check_background, check_perturbations
 
 from .conftest import PerturbationsCase
+from .cosmologies import Cosmology, cosmology_params
 
 
 @pytest.mark.parametrize(
     "z", [jnp.linspace(0.0, 5.0, 50), jnp.array(1.0)], ids=["vector", "scalar"]
 )
-def test_background_conformance(background: Background, z: jnp.ndarray) -> None:
+@pytest.mark.parametrize("background", cosmology_params())
+def test_background_conformance(background: Cosmology, z: jnp.ndarray) -> None:
     check_background(background, z)
 
 

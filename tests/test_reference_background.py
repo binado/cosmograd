@@ -8,7 +8,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from .conftest import CosmologyCase, camb_results, cosmology_params
+from .conftest import camb_results
+from .cosmologies import Cosmology, cosmology_params
 
 pytestmark = pytest.mark.slow
 
@@ -20,9 +21,9 @@ Z = np.concatenate([np.linspace(0.01, 10.0, 60), [30.0, 100.0, 500.0, 1200.0]])
 
 
 @pytest.mark.parametrize("case", cosmology_params())
-def test_hubble_parameter(case: CosmologyCase) -> None:
+def test_hubble_parameter(case: Cosmology) -> None:
     np.testing.assert_allclose(
-        case.background.hubble_parameter(Z),
+        case.hubble_parameter(Z),
         camb_results(case).h_of_z(Z),
         rtol=RTOL,
     )
@@ -37,14 +38,14 @@ def test_hubble_parameter(case: CosmologyCase) -> None:
     ],
 )
 @pytest.mark.parametrize("case", cosmology_params())
-def test_distances(case: CosmologyCase, method: str, camb_method: str) -> None:
+def test_distances(case: Cosmology, method: str, camb_method: str) -> None:
     expected = getattr(camb_results(case), camb_method)(Z)
-    np.testing.assert_allclose(getattr(case.background, method)(Z), expected, rtol=RTOL)
+    np.testing.assert_allclose(getattr(case, method)(Z), expected, rtol=RTOL)
 
 
 @pytest.mark.parametrize("case", cosmology_params())
-def test_matter_density_parameter(case: CosmologyCase) -> None:
-    bg = case.background
+def test_matter_density_parameter(case: Cosmology) -> None:
+    bg = case
     expected = (
         bg.omega_m
         * (1 + Z) ** 3
@@ -54,28 +55,28 @@ def test_matter_density_parameter(case: CosmologyCase) -> None:
 
 
 @pytest.mark.parametrize("case", cosmology_params())
-def test_differential_comoving_volume(case: CosmologyCase) -> None:
+def test_differential_comoving_volume(case: Cosmology) -> None:
     # dV/dz/dΩ = D_M^2 / H with c = 1 and D_M the transverse comoving distance.
     results = camb_results(case)
     d_m = results.angular_diameter_distance(Z) * (1 + Z)
     expected = d_m**2 / results.h_of_z(Z)
     np.testing.assert_allclose(
-        case.background.differential_comoving_volume(Z), expected, rtol=RTOL
+        case.differential_comoving_volume(Z), expected, rtol=RTOL
     )
 
 
 @pytest.mark.parametrize("case", cosmology_params())
-def test_redshift_at_comoving_distance(case: CosmologyCase) -> None:
+def test_redshift_at_comoving_distance(case: Cosmology) -> None:
     chi = camb_results(case).comoving_radial_distance(Z)
     np.testing.assert_allclose(
-        case.background.redshift_at_comoving_distance(jnp.asarray(chi)),
+        case.redshift_at_comoving_distance(jnp.asarray(chi)),
         Z,
         rtol=RTOL_LOOSE,
     )
 
 
 @pytest.mark.parametrize("case", cosmology_params())
-def test_radiation_density(case: CosmologyCase) -> None:
+def test_radiation_density(case: Cosmology) -> None:
     results = camb_results(case)
     expected = results.get_Omega("photon") + results.get_Omega("neutrino")
-    np.testing.assert_allclose(case.background.omega_r, expected, rtol=RTOL_LOOSE)
+    np.testing.assert_allclose(case.omega_r, expected, rtol=RTOL_LOOSE)

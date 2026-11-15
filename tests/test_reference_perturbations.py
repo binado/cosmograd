@@ -20,7 +20,7 @@ from cosmograd import FlatLCDM, FlatW0WaCDM
 from cosmograd.perturbations.baccoemu import BaccoEmu
 from cosmograd.perturbations.cosmopower import CosmoPower
 
-from .conftest import CosmologyCase, cosmology_params
+from .cosmologies import Cosmology, cosmology_params
 
 pytestmark = pytest.mark.slow
 
@@ -34,18 +34,18 @@ K = np.geomspace(1e-3, 1.0, 12)
 """Wavenumbers in 1/Mpc, inside both emulators' ranges."""
 
 
-def _cloelib_background(case: CosmologyCase) -> Any:
+def _cloelib_background(case: Cosmology) -> Any:
     jax_cosmology = pytest.importorskip("cloelib.cosmology.jax_cosmology")
     return jax_cosmology.JAXBackground(
-        H0=case.H0,
-        Omega_b0=case.omega_b,
-        Omega_cdm0=case.omega_m - case.omega_b,
+        H0=float(case.H0),
+        Omega_b0=float(case.omega_b),
+        Omega_cdm0=float(case.omega_m - case.omega_b),
         Omega_k0=0.0,
-        As=math.exp(case.ln10as) * 1e-10,
-        ns=case.n_s,
+        As=math.exp(float(case.ln10as)) * 1e-10,
+        ns=float(case.n_s),
         mnu=0.0,
-        w0=case.w0,
-        wa=case.wa,
+        w0=float(case.w0),
+        wa=float(case.wa),
         gamma_MG=0.55,
         N_mnu=0,
     )
@@ -58,7 +58,7 @@ def _power(cosmo: Any, k: np.ndarray, z: np.ndarray) -> np.ndarray:
 
 @pytest.mark.parametrize("nonlinear", [False, True], ids=["linear", "nonlinear"])
 @pytest.mark.parametrize("case", cosmology_params("flat_lcdm"))
-def test_cosmopower(case: CosmologyCase, nonlinear: bool) -> None:
+def test_cosmopower(case: Cosmology, nonlinear: bool) -> None:
     module = pytest.importorskip("cloelib.cosmology.cosmopower_jax_cosmology")
     pytest.importorskip("cosmopower_jax")
     background = _cloelib_background(case)
@@ -68,8 +68,8 @@ def test_cosmopower(case: CosmologyCase, nonlinear: bool) -> None:
         reference = emu.NonLinear(background, linear, Z) if nonlinear else linear
     except ValueError as err:  # raised by cloelib's training-box check
         pytest.skip(str(err))
-    assert isinstance(case.cosmology, FlatLCDM)
-    mine = CosmoPower(case.cosmology, nonlinear=nonlinear)
+    assert isinstance(case, FlatLCDM)
+    mine = CosmoPower(case, nonlinear=nonlinear)
     expected = np.asarray(reference.matter_power_spectrum(Z, K))
     actual = (
         np.asarray(mine.matter_power_spectrum(K[None, :], Z[:, None]))
@@ -82,11 +82,11 @@ def test_cosmopower(case: CosmologyCase, nonlinear: bool) -> None:
 
 
 @pytest.mark.parametrize("case", cosmology_params("flat"))
-def test_baccoemu_linear(case: CosmologyCase) -> None:
+def test_baccoemu_linear(case: Cosmology) -> None:
     module = pytest.importorskip("cloelib.cosmology.baccoemu_cosmology")
     pytest.importorskip("baccoemu.matter_powerspectrum")
-    assert isinstance(case.cosmology, FlatLCDM | FlatW0WaCDM)
-    mine = BaccoEmu(case.cosmology)
+    assert isinstance(case, FlatLCDM | FlatW0WaCDM)
+    mine = BaccoEmu(case)
     try:
         mine.check_bounds(K, Z)
     except ValueError as err:
@@ -98,11 +98,11 @@ def test_baccoemu_linear(case: CosmologyCase) -> None:
 
 
 @pytest.mark.parametrize("case", cosmology_params("flat"))
-def test_baccoemu_nonlinear(case: CosmologyCase) -> None:
+def test_baccoemu_nonlinear(case: Cosmology) -> None:
     module = pytest.importorskip("cloelib.cosmology.baccoemu_cosmology")
     pytest.importorskip("baccoemu.matter_powerspectrum")
-    assert isinstance(case.cosmology, FlatLCDM | FlatW0WaCDM)
-    mine = BaccoEmu(case.cosmology, nonlinear=True)
+    assert isinstance(case, FlatLCDM | FlatW0WaCDM)
+    mine = BaccoEmu(case, nonlinear=True)
     try:
         mine.check_bounds(K, Z)
     except ValueError as err:

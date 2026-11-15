@@ -40,6 +40,8 @@ radiation and redshift constraints. Emulator weights may download on first use.
 
 ## References
 
+- CosmoPower-JAX: [Piras & Spurio Mancini (2023)](https://arxiv.org/abs/2305.06347), [CosmoPower paper](https://arxiv.org/abs/2106.03846), and [repository](https://github.com/dpiras/cosmopower-jax).
+- baccoemu: [linear power emulator](https://arxiv.org/abs/2104.14568), [nonlinear power emulator](https://arxiv.org/abs/2004.06245), and [repository](https://bitbucket.org/rangulo/baccoemu/).
 - [Eisenstein & Hu (1998), Baryonic Features in the Matter Transfer Function](https://arxiv.org/abs/astro-ph/9709112)
 - [Smith & Angulo (2019), Precision modelling of the matter power spectrum](https://arxiv.org/abs/1807.00040)
 - [Planck Collaboration (2020), Planck 2018 cosmological parameters](https://arxiv.org/abs/1807.06209)

@@ -29,32 +29,12 @@ __all__ = ["FlatLCDM"]
 class FlatLCDM(_Flat, _Lambda):
     """Flat :math:`\\Lambda\\mathrm{CDM}` background with radiation.
 
-    This is :class:`~cosmograd.W0WaCDM` with :math:`\\Omega_k = 0`,
-    :math:`w_0 = -1` and :math:`w_a = 0` fixed, so
-
-    .. math::
-
-        E^2(z) = \\Omega_m (1 + z)^3 + \\Omega_r (1 + z)^4 + \\Omega_\\Lambda,
-
-    with :math:`\\Omega_\\Lambda = 1 - \\Omega_m - \\Omega_r`. Radiation is
-    photons plus ``n_eff`` massless neutrino species, fixed by ``t_cmb``.
     Massive neutrinos are not included.
 
     The instance is a pytree whose leaves are ``H0``, ``omega_m`` and ``omega_b``,
     ``n_s`` and ``ln10as``; ``t_cmb`` and ``n_eff`` are static.
     Differentiate with respect to the cosmology directly, e.g.
     ``jax.jacfwd(lambda c: c.luminosity_distance(z))(cosmo)``.
-
-    Methods operate on one cosmology with scalar parameters. Parameter fields
-    allow arbitrary shapes to hold batched pytrees and Jacobians; evaluate a
-    batch of cosmologies with :func:`jax.vmap`. Every leaf of a batch carries
-    the batch axis, defaulted parameters included; mapping the constructor,
-    ``jax.vmap(lambda h0: FlatLCDM(H0=h0, omega_m=0.3))(h0s)``, builds one.
-
-    Distances use 32-point Gauss–Legendre quadrature in
-    :math:`\\ln(1 + z)`. The inverse relation uses a fixed number of Newton
-    iterations in the same coordinate, with implicit differentiation through
-    :func:`jax.lax.custom_root` and an analytic residual derivative.
 
     ``omega_b``, ``n_s`` and ``ln10as`` are read only by the perturbation
     backends, which take this object as their cosmology; no method here uses
@@ -83,14 +63,6 @@ class FlatLCDM(_Flat, _Lambda):
         CMB temperature today in K. Static.
     n_eff : float, default 3.044
         Effective number of massless neutrino species. Static.
-
-    Notes
-    -----
-    No method validates its inputs. Redshifts and distances are expected to be
-    non-negative. Quadrature accuracy and convergence of the inverse have been
-    checked through ``z = 1200`` for representative cosmologies. The fixed
-    iteration budget does not guarantee convergence for arbitrary parameters
-    or distances. Inputs need not be sorted.
     """
 
     # Tells jaxtyping's import hook not to check the generated ``__init__``
@@ -144,9 +116,6 @@ class FlatLCDM(_Flat, _Lambda):
 
     def efunc(self, z: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
         """Dimensionless expansion rate :math:`E(z) = H(z) / H_0`.
-
-        Drops the zero curvature term of the general form, which XLA does not
-        fold away and which costs about a quarter of the distance evaluation.
 
         Parameters
         ----------

@@ -51,7 +51,6 @@ def test_heath_integral(smooth_background: SmoothWCDM) -> None:
     """The independent Heath integral applies for matter + Λ or curvature."""
     bg = smooth_background
     z = np.array([[3.0, 0.0], [0.5, 3.0]])
-    # Reference quadrature: I(a) = integral_0^a da' / (a' E(a'))^3.
     nodes, weights = np.polynomial.legendre.leggauss(128)
     u, weights = (nodes + 1) / 2, weights / 2
     a = 1 / (1 + z)
@@ -103,7 +102,6 @@ def test_jit_and_cosmology_vmap(smooth_background: SmoothWCDM) -> None:
 
 
 def test_parameter_autodiff() -> None:
-    # A genuinely different expansion history exercises generic Background use.
     bg = SmoothWCDM(H0=70.0, omega_m=0.3, t_cmb=0.0, w=-0.8)
     forward = jax.jit(jax.jacfwd(lambda b: linear_growth(b, 1.0)[0]))(bg)
     reverse = jax.jit(jax.grad(lambda b: linear_growth(b, 1.0)[0]))(bg)

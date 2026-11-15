@@ -27,24 +27,6 @@ __all__ = ["LCDM"]
 class LCDM(_Lambda):
     """:math:`\\Lambda\\mathrm{CDM}` background with radiation and curvature.
 
-    This is :class:`~cosmograd.W0WaCDM` with :math:`w_0 = -1` and
-    :math:`w_a = 0` fixed, so
-
-    .. math::
-
-        E^2(z) = \\Omega_m (1 + z)^3 + \\Omega_r (1 + z)^4
-        + \\Omega_k (1 + z)^2 + \\Omega_\\Lambda,
-
-    with :math:`\\Omega_\\Lambda = 1 - \\Omega_m - \\Omega_r - \\Omega_k`.
-    Radiation is photons plus ``n_eff`` massless neutrino species, fixed by
-    ``t_cmb``. Massive neutrinos are not included.
-
-    The instance is a pytree whose leaves are ``H0``, ``omega_m``,
-    ``omega_k`` and ``omega_b``,
-    ``n_s`` and ``ln10as``; ``t_cmb`` and
-    ``n_eff`` are static. Methods operate on one cosmology with scalar
-    parameters; evaluate a batch of cosmologies with :func:`jax.vmap`.
-
     ``omega_b``, ``n_s`` and ``ln10as`` are read only by the perturbation
     backends, which take this object as their cosmology; no method here uses
     them. They default to the Planck 2018 values of
@@ -75,11 +57,6 @@ class LCDM(_Lambda):
         CMB temperature today in K. Static.
     n_eff : float, default 3.044
         Effective number of massless neutrino species. Static.
-
-    Notes
-    -----
-    No method validates its inputs. See :class:`~cosmograd.W0WaCDM` for the
-    quadrature and inverse.
     """
 
     # See W0WaCDM: keep jaxtyping from checking the generated ``__init__``.

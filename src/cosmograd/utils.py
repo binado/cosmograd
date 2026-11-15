@@ -26,8 +26,6 @@ def gauss_legendre_nodes_and_weights(
     -------
     nodes, weights : Array
         Increasing nodes and corresponding weights, each of shape ``(n,)``.
-        Compute once and reuse across integrations. Precision follows the JAX
-        configuration.
 
     Notes
     -----

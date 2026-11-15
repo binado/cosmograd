@@ -77,7 +77,6 @@ t_cmb, n_eff, k_pivot = 2.7255, 3.044, 0.05
 omega_k, neutrino_mass, num_massive_neutrinos = 0.0, 0.0, 0
 w0, wa = -1.0, 0.0
 
-# Evaluation grid, nonlinear prescriptions and CAMB transfer sampling.
 k_min, k_max, n_k = 1e-3, 3.0, 300  # Mpc^-1
 c_min, eta_0 = 3.13, 0.603
 bacco_model = "Angulo2021"
@@ -86,14 +85,12 @@ camb_transfer_settings = {"kmax": 10.0, "k_per_logint": 50}
 camb_output_units = {"hubble_units": False, "k_hunit": False}  # Physical Mpc units.
 camb_want_cls = False  # Only matter transfer functions are needed.
 
-# Figure appearance.
 figure_size, panel_ratios = (9, 7), [3, 1.4]
 figure_layout = "constrained"
 grid_alpha = 0.2
 zero_line_style = {"color": "0.5", "linewidth": 0.8}
 
 # %%
-# Derive physical densities for CAMB and the primordial amplitude for Bacco.
 h = H0 / 100.0
 ombh2 = omega_b * h**2
 omch2 = (omega_m - omega_b) * h**2

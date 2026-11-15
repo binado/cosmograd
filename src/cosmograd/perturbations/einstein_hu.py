@@ -137,19 +137,10 @@ class EisensteinHu:
 
     Notes
     -----
-    Growth neglects radiation and uses a Diffrax linear growth ODE,
+    Growth neglects radiation and uses a linear growth ODE,
     initialized with D = a in matter domination at a = 0.001.
-    Checked for representative late-time cosmologies through z = 10.
     Background distances retain the supplied background's radiation treatment.
-    Massive neutrinos and nonlinear power are unsupported. Inputs are not
-    validated: wavenumbers must be positive and redshifts non-negative;
-    neither needs to be sorted. Growth is supported only through z = 999,
-    the initial redshift of the ODE (``1/a_initial - 1`` for the default
-    ``a_initial``); larger or negative redshifts return NaN.
-
-    The pytree leaves are those of the cosmology. Its fields may hold
-    batched parameters or Jacobians; evaluate one
-    cosmology at a time, using :func:`jax.vmap` for batches.
+    Massive neutrinos and nonlinear power are unsupported.
     """
 
     __no_type_check__ = True
@@ -265,10 +256,17 @@ class EisensteinHu:
 
         Notes
         -----
-        [SmithAngulo19]_ equation (10), with their a g = D_md and c = 1,
-        gives P = (2π²/k³) P_R [2 k² T D_md / (5 Ω_m H0²)]².
-        H0 is in inverse Mpc. The growth normalised to unity today cannot be
-        substituted for D_md without changing the primordial normalisation.
+        [SmithAngulo19]_ equation (10), with their :math:`a g = D_\\mathrm{md}`
+        and :math:`c = 1`, gives
+
+        .. math::
+
+            P = \\frac{2\\pi^2}{k^3} P_\\mathcal{R}
+            \\left[\\frac{2 k^2 T(k) D_\\mathrm{md}}{5 \\Omega_m H_0^2}\\right]^2.
+
+        :math:`H_0` is in inverse Mpc. The growth normalised to unity today
+        cannot be substituted for :math:`D_\\mathrm{md}` without changing the
+        primordial normalisation.
         """
         # Smith & Angulo (2019), equation (10), with c = 1 and a g = D_md.
         # D_md must retain its matter-era normalisation for the A_s conversion.
@@ -304,9 +302,16 @@ class EisensteinHu:
 
         Notes
         -----
-        [SmithAngulo19]_ equation (8) with zero running. The pivot 0.05/Mpc
-        and logarithmic amplitude parameter follow [Planck20]_ section 2.1:
-        A_s = 10⁻¹⁰ exp(ln10as). P_R here is dimensionless (their Δ_R²).
+        [SmithAngulo19]_ equation (8) with zero running. The pivot
+        :math:`k_\\mathrm{pivot} = 0.05\\,\\mathrm{Mpc}^{-1}` and logarithmic
+        amplitude parameter follow [Planck20]_ section 2.1:
+
+        .. math::
+
+            A_s = 10^{-10} \\exp(\\mathrm{ln10as})
+
+        :math:`P_\\mathcal{R}` here is dimensionless (their
+        :math:`\\Delta_\\mathcal{R}^2`).
         """
         cosmo = self.background
         amplitude = 1e-10 * jnp.exp(jnp.asarray(cosmo.ln10as))

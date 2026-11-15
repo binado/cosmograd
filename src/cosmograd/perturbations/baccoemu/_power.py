@@ -170,12 +170,10 @@ def nonlinear_boost(
     pk_cold = jnp.exp(log_pk_cold)
     pk_cold_nl = jnp.exp(interp_extrap(log_k_nl, log_k_lin, log_pk_cold))
 
-    # No-wiggles spectrum (same inputs and k grid as the linear network).
     log_ratio = mlp_apply(emu.no_wiggles, _stack(p, LINEAR_KEYS)) + emu.no_wiggles_mean
     log_ratio = jnp.where(emu.k_lin > _K_NOWIGGLE_MAX, 0.0, log_ratio)
     ratio_nl = jnp.exp(jnp.interp(log_k_nl, log_k_lin, log_ratio, left=0.0, right=0.0))
 
-    # BAO damping by the linear displacement dispersion.
     sigma_star_2 = jnp.trapezoid(emu.k_lin * pk_cold, x=log_k_lin) / (3 * jnp.pi**2)
     damping = jnp.exp(-0.5 * emu.k_nl**2 * sigma_star_2)
     pk_smeared = pk_cold_nl * (damping + ratio_nl * (1 - damping))

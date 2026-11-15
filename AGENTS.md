@@ -20,6 +20,7 @@ is unavailable.
 
 ## Code styleguide
 
+- Be minimal on code comments. A comment explains the code that is there now: an invariant it must maintain, a non-obvious reason it has to be this way, a constraint a future editor would otherwise break. Write every comment so it still reads correctly to someone who has only the repository in front of them — no plan, no chat log, no memory of how the code came to be. If a sentence only makes sense to someone who watched the code being written, it does not belong in the source.
 - Add type annotations and follow existing NumPy-style docstrings
 - Prefer common jax design patterns
 - Prefer documenting conventions in docstrings than enforcing array argument validation

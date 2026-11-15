@@ -21,7 +21,6 @@ Z = np.array([0.0, 0.4, 1.0, 1.5])
 COSMOLOGY_PARAMETERS = ("H0", "omega_m", "w0", "wa", "omega_b", "n_s")
 BACKEND_PARAMETERS = ("sigma8_cold", "neutrino_mass")
 
-# Keyword arguments of ``baccoemu``, the reference for each case.
 BACCO = {
     "lcdm": {
         "hubble": 0.67,

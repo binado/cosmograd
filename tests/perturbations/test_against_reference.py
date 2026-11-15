@@ -162,7 +162,6 @@ def test_shape_gradient_matches_jax_cosmo(case: FlatLCDM, name: str) -> None:
     point = (jnp.asarray(case.omega_m), jnp.asarray(case.omega_b))
     ours_jac = jax.jacfwd(ours, argnums=argnum)(*point)
     theirs_jac = jax.jacfwd(theirs, argnums=argnum)(*point)
-    # Remove the amplitude: differences of log P between wavenumbers.
     np.testing.assert_allclose(
         jnp.diff(ours_jac), jnp.diff(theirs_jac), rtol=5e-2, atol=1e-2
     )

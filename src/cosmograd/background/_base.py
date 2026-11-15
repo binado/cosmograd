@@ -29,7 +29,6 @@ def _given(**changes: object) -> dict[str, object]:
     return {k: v for k, v in changes.items() if v is not None}
 
 
-# Fixed number of Newton iterations used by the inverse distance relation.
 _NEWTON_ITERATIONS = 7
 
 
@@ -225,8 +224,6 @@ class CPLBackground(Background):
         Array
             Redshift :math:`z(\\chi)`, with the shape of ``chi``.
         """
-        # Review this implementation if inverse distances become a performance
-        # bottleneck: a custom JVP on the inverse can reduce gradient overhead.
         chi = jnp.asarray(chi, dtype=jnp.result_type(chi, 1.0))
 
         def residual(x: Array) -> Array:

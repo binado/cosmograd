@@ -8,7 +8,6 @@ import pytest
 
 from cosmograd import LCDM, EisensteinHu, FlatLCDM, FlatW0WaCDM, W0WaCDM, cosmologies
 
-# sigma_8 quoted in the table each cosmology is taken from.
 PUBLISHED_SIGMA8 = {"Planck13": 0.8288, "Planck15": 0.8159, "Planck18": 0.8102}
 
 

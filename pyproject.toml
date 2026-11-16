@@ -1,6 +1,6 @@
 [project]
 name = "cosmograd"
-version = "0.1.1"
+version = "0.2.0"
 description = "Differentiable cosmology in JAX behind a small protocol contract."
 readme = "README.md"
 license = "MIT"

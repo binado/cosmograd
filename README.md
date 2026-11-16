@@ -22,6 +22,21 @@ jax.grad(lambda c: c.comoving_distance(1.0))(cosmo)
 EisensteinHu(cosmo).matter_power_spectrum(0.1, 0.5)  # Mpc^3
 ```
 
+Or wrap your own parameter pytree and Hubble rate with `GenericBackground`:
+
+```python
+import jax
+import jax.numpy as jnp
+from cosmograd import GenericBackground
+
+def hubble(p, z):
+    e2 = p["omega_m"] * (1 + z) ** 3 + 1 - p["omega_m"]
+    return p["h"] / 2997.92458 * jnp.sqrt(e2)
+
+bg = GenericBackground({"h": 0.6736, "omega_m": 0.3153}, hubble, lambda p: p["omega_m"])
+jax.grad(lambda b: b.luminosity_distance(1.0))(bg).params
+```
+
 See the API docstrings for parameter conventions, units and valid ranges.
 
 ## Features

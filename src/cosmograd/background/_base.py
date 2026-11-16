@@ -1,9 +1,7 @@
 """Machinery shared by every background with radiation and CPL dark energy."""
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-import jax
 import jax.numpy as jnp
 from jax import Array
 from jax.typing import ArrayLike
@@ -15,10 +13,7 @@ from ..constants import (
     OMEGA_GAMMA_H2_FIDUCIAL,
     T_CMB_FIDUCIAL,
 )
-from ..utils import (
-    affine_transform_gauss_legendre_nodes_and_weights,
-    gauss_legendre_nodes_and_weights,
-)
+from . import functional
 from .protocol import Background
 
 __all__ = ["CPLBackground"]
@@ -27,9 +22,6 @@ __all__ = ["CPLBackground"]
 def _given(**changes: object) -> dict[str, object]:
     """Drop the entries of ``changes`` that are ``None``."""
     return {k: v for k, v in changes.items() if v is not None}
-
-
-_NEWTON_ITERATIONS = 7
 
 
 class CPLBackground(Background):
@@ -161,14 +153,7 @@ class CPLBackground(Background):
         Array
             :math:`\\chi(z)` in Mpc, with the shape of ``z``.
         """
-        with jax.ensure_compile_time_eval():
-            nodes, weights = gauss_legendre_nodes_and_weights(32)
-        length = jnp.log1p(jnp.asarray(z))
-        x, weights = affine_transform_gauss_legendre_nodes_and_weights(
-            nodes, weights, jnp.zeros_like(length), length
-        )
-        integrand = jnp.exp(x) / self.hubble_parameter(jnp.expm1(x))
-        return jnp.sum(weights * integrand, axis=-1)
+        return functional.comoving_distance(type(self).hubble_parameter, self, z)
 
     def transverse_comoving_distance(
         self,
@@ -191,9 +176,9 @@ class CPLBackground(Background):
         Array
             :math:`D_M(z)` in Mpc, with the shape of ``z``.
         """
-        chi = self.comoving_distance(z)
-        x = jnp.asarray(self.omega_k) * (self.hubble_constant * chi) ** 2
-        return chi * _sinhc_sqrt(x)
+        return functional.transverse_comoving_distance(
+            type(self).hubble_parameter, self, z, self.omega_k
+        )
 
     def redshift_at_comoving_distance(
         self,
@@ -212,26 +197,9 @@ class CPLBackground(Background):
         Array
             Redshift :math:`z(\\chi)`, with the shape of ``chi``.
         """
-        chi = jnp.asarray(chi, dtype=jnp.result_type(chi, 1.0))
-
-        def residual(x: Array) -> Array:
-            return _distance_residual(self, chi, x)
-
-        def solve(f: Callable[[Array], Array], initial: Array) -> Array:
-            def step(_: int | Array, x: Array) -> Array:
-                z = jnp.expm1(x)
-                return x - f(x) * self.hubble_parameter(z) / jnp.exp(x)
-
-            return jax.lax.fori_loop(0, _NEWTON_ITERATIONS, step, initial)
-
-        def tangent_solve(g: Callable[[Array], Array], y: Array) -> Array:
-            # Each distance has an independent root, so the Jacobian is diagonal.
-            return y / g(jnp.ones_like(y))
-
-        x = jax.lax.custom_root(
-            residual, chi * self.hubble_constant, solve, tangent_solve
+        return functional.redshift_at_comoving_distance(
+            type(self).hubble_parameter, self, chi
         )
-        return jnp.expm1(x)
 
 
 class _Flat(CPLBackground):
@@ -280,43 +248,3 @@ class _Lambda(CPLBackground):
     def wa(self) -> float:
         """Evolution of the equation of state, identically zero."""
         return 0.0
-
-
-def _sinhc_sqrt(x: Real[ArrayLike, "*shape"]) -> Float[Array, "*shape"]:
-    """:math:`\\sinh(\\sqrt{x}) / \\sqrt{x}` for any sign of ``x``.
-
-    Negative ``x`` gives :math:`\\sin(\\sqrt{-x}) / \\sqrt{-x}`. A Taylor series
-    covers :math:`|x| < 10^{-2}`, where the closed forms divide by zero; the
-    inner ``where`` keeps gradients finite there.
-    """
-    x = jnp.asarray(x)
-    small = jnp.abs(x) < 1e-2
-    safe = jnp.where(small, 1.0, x)
-    root = jnp.sqrt(jnp.abs(safe))
-    exact = jnp.where(safe > 0, jnp.sinh(root), jnp.sin(root)) / root
-    series = 1 + x / 6 + x**2 / 120 + x**3 / 5040
-    return jnp.where(small, series, exact)
-
-
-@jax.custom_jvp
-def _distance_residual(
-    cosmo: CPLBackground,
-    chi: Real[ArrayLike, "*shape"],
-    x: Real[ArrayLike, "*shape"],
-) -> Float[Array, "*shape"]:
-    """Distance residual in log-redshift for independent scalar roots."""
-    return cosmo.comoving_distance(jnp.expm1(x)) - jnp.asarray(chi)
-
-
-@_distance_residual.defjvp
-def _distance_residual_jvp(
-    primals: tuple[CPLBackground, Array, Array],
-    tangents: tuple[CPLBackground, Array, Array],
-) -> tuple[Array, Array]:
-    """Use dchi/dx = exp(x)/H(z), retaining parameter derivatives of chi."""
-    cosmo, chi, x = primals
-    dcosmo, dchi, dx = tangents
-    z = jnp.expm1(x)
-    value, dparameter = jax.jvp(lambda c: c.comoving_distance(z), (cosmo,), (dcosmo,))
-    derivative = dparameter - dchi + jnp.exp(x) / cosmo.hubble_parameter(z) * dx
-    return value - chi, derivative

@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
+from typing import Any, NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -11,7 +12,8 @@ from jax import Array
 from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
-from ...background import FlatLCDM, FlatW0WaCDM
+from ...background import Background
+from ...constants import C_KM_S
 from ._emulator import (
     LINEAR_KEYS,
     NONLINEAR_KEYS,
@@ -29,7 +31,7 @@ from ._power import (
     nonlinear_boost,
 )
 
-__all__ = ["BaccoEmu"]
+__all__ = ["BaccoEmu", "BaccoEmuParameters"]
 
 # Least-squares slope over 5 points spaced by 0.03 in ln a (the centre has
 # weight zero). Autodiff of the piecewise-linear ReLU networks is ~5x noisier.
@@ -42,13 +44,42 @@ _Table = Callable[[Float[Array, ""]], Float[Array, " grid"]]
 _float = partial(jnp.asarray, dtype=float)
 
 
+class BaccoEmuParameters(NamedTuple):
+    """What :class:`BaccoEmu` needs and a background cannot provide."""
+
+    omega_b: Real[ArrayLike, ""]
+    """Baryon density parameter today, :math:`\\Omega_b`."""
+    n_s: Real[ArrayLike, ""]
+    """Scalar spectral index."""
+    ln10as: Real[ArrayLike, ""] | None = None
+    """:math:`\\ln(10^{10} A_s)`, with :math:`A_s` at the pivot 0.05/Mpc.
+
+    Only read when the backend has no ``sigma8_cold``.
+    """
+    w0: Real[ArrayLike, ""] = -1.0
+    """Dark energy equation of state today."""
+    wa: Real[ArrayLike, ""] = 0.0
+    """Its derivative with respect to :math:`-a`."""
+
+
+def _attributes(background: Any) -> BaccoEmuParameters:
+    """Read the parameters from the attributes of a native cosmology."""
+    return BaccoEmuParameters(
+        omega_b=background.omega_b,
+        n_s=background.n_s,
+        ln10as=background.ln10as,
+        w0=background.w0,
+        wa=background.wa,
+    )
+
+
 @partial(
     jax.tree_util.register_dataclass,
     data_fields=["background", "sigma8_cold", "neutrino_mass"],
-    meta_fields=["model_name", "cold", "nonlinear"],
+    meta_fields=["parameters", "model_name", "cold", "nonlinear"],
 )
 @dataclass(frozen=True)
-class BaccoEmu:
+class BaccoEmu[B: Background]:
     """Linear and nonlinear matter power spectra from the bacco emulators.
 
     A differentiable JAX port of ``baccoemu.Matter_powerspectrum`` (Aricò et
@@ -63,15 +94,21 @@ class BaccoEmu:
 
     Parameters
     ----------
-    background : FlatLCDM or FlatW0WaCDM
-        The cosmology, retained by identity. The emulator inputs are
-        ``hubble = H0 / 100``, ``omega_baryon = omega_b``, ``ns = n_s``,
-        its ``w0`` and ``wa``, and
-        :math:`\\Omega_{cb} = \\Omega_m - \\Omega_\\nu`: ``omega_m`` is the
-        total matter density, including massive neutrinos.
+    background : Background
+        The cosmology, retained by identity. Its Hubble constant gives the
+        emulator's ``hubble`` and its matter density today, which includes
+        massive neutrinos, gives
+        :math:`\\Omega_{cb} = \\Omega_m - \\Omega_\\nu`. Must be flat with CPL
+        dark energy: the emulators know no other expansion history.
+    parameters : callable, optional
+        ``parameters(background)``, returning the :class:`BaccoEmuParameters`.
+        The default reads the attributes ``omega_b``, ``n_s``, ``ln10as``,
+        ``w0`` and ``wa`` of the background, which the native flat cosmologies
+        have. Static; define it at module level so that :func:`jax.jit` does
+        not recompile for every instance.
     sigma8_cold : ArrayLike, optional
         RMS linear cold-matter fluctuation in spheres of 8 Mpc/h at
-        :math:`z = 0`. When given it sets the amplitude and the cosmology's
+        :math:`z = 0`. When given it sets the amplitude and the parameters'
         ``ln10as`` is ignored; otherwise ``ln10as`` sets it.
     neutrino_mass : ArrayLike, default 0.0
         Sum of the neutrino masses in eV,
@@ -113,7 +150,8 @@ class BaccoEmu:
     # which JAX calls with placeholder leaves during transforms.
     __no_type_check__ = True
 
-    background: FlatLCDM | FlatW0WaCDM
+    background: B
+    parameters: Callable[[B], BaccoEmuParameters] = _attributes
     sigma8_cold: Real[ArrayLike, "..."] | None = None
     neutrino_mass: Real[ArrayLike, "..."] = 0.0
     model_name: ModelName = "Angulo2021"
@@ -126,26 +164,27 @@ class BaccoEmu:
 
     @property
     def _h(self) -> Float[Array, ""]:
-        return _float(self.background.H0) / 100
+        return _float(self.background.hubble_constant) * C_KM_S / 100
 
     def _bacco_params(self, z: Real[ArrayLike, ""]) -> dict[str, Float[Array, ""]]:
         """Parameters keyed by ``baccoemu`` name, at one redshift."""
-        cosmo = self.background
+        parameters = self.parameters(self.background)
         h = self._h
+        omega_m = _float(self.background.matter_density_parameter(0.0))
         neutrino_mass = _float(self.neutrino_mass)
         p = {
             "hubble": h,
-            "omega_cold": _float(cosmo.omega_m) - neutrino_mass / NU_DENSITY / h**2,
-            "omega_baryon": _float(cosmo.omega_b),
-            "ns": _float(cosmo.n_s),
+            "omega_cold": omega_m - neutrino_mass / NU_DENSITY / h**2,
+            "omega_baryon": _float(parameters.omega_b),
+            "ns": _float(parameters.n_s),
             "neutrino_mass": neutrino_mass,
-            "w0": _float(cosmo.w0),
-            "wa": _float(cosmo.wa),
+            "w0": _float(parameters.w0),
+            "wa": _float(parameters.wa),
         }
         if self.sigma8_cold is not None:
             amplitude = {"sigma8_cold": _float(self.sigma8_cold)}
         else:
-            amplitude = {"A_s": 1e-10 * jnp.exp(_float(cosmo.ln10as))}
+            amplitude = {"A_s": 1e-10 * jnp.exp(_float(parameters.ln10as))}
         p["A_s"], p["sigma8_cold"] = amplitudes(self._emulator, p | amplitude)
         p["expfactor"] = 1 / (1 + jnp.asarray(z, dtype=float))
         return p

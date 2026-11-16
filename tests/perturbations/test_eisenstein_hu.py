@@ -9,6 +9,7 @@ import pytest
 
 from cosmograd import EisensteinHu, FlatLCDM, Perturbations
 from cosmograd.perturbations import EisensteinHu as ExportedEisensteinHu
+from cosmograd.perturbations import EisensteinHuParameters
 
 PLANCK = FlatLCDM(H0=67.36, omega_m=0.3153, omega_b=0.0493, n_s=0.9649, ln10as=3.044)
 
@@ -55,3 +56,28 @@ def test_growth_is_independent_of_wavenumber(eh: EisensteinHu) -> None:
         eh.growth_rate(z[:, None], k=k),
         np.broadcast_to(eh.growth_rate(z)[:, None], (3, 3)),
     )
+
+
+def test_growth_before_the_start_is_the_scale_factor(eh: EisensteinHu) -> None:
+    z = jnp.array([50.0, 200.0, 900.0])
+    growth = eh.growth_function(z) * (1 + z)
+    np.testing.assert_allclose(growth, growth[0])
+    np.testing.assert_allclose(eh.growth_rate(z), 1.0)
+
+
+def planck_parameters(_: FlatLCDM) -> EisensteinHuParameters:
+    return EisensteinHuParameters(
+        PLANCK.omega_b, PLANCK.n_s, PLANCK.ln10as, PLANCK.t_cmb
+    )
+
+
+def test_power_spectrum_is_insensitive_to_the_start_without_radiation() -> None:
+    background = replace(PLANCK, t_cmb=0.0)
+    k, z = jnp.array([0.01, 0.1, 1.0]), jnp.array([0.0, 1.0, 3.0])
+    default, later = (
+        EisensteinHu(
+            background, parameters=planck_parameters, a_initial=a_initial
+        ).linear_matter_power_spectrum(k, z)
+        for a_initial in (None, 1e-2)
+    )
+    np.testing.assert_allclose(later, default, rtol=1e-4)

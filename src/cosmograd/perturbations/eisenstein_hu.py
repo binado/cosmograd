@@ -19,7 +19,9 @@ References
    https://arxiv.org/abs/1807.06209
 """
 
-from dataclasses import dataclass, field, replace
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any, NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -27,10 +29,34 @@ from jax import Array
 from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
-from ..background import FlatLCDM, FlatW0WaCDM
-from .growth import linear_growth
+from ..background import Background
+from ..constants import C_KM_S
+from .growth import linear_growth, matter_domination_scale_factor
 
-__all__ = ["EisensteinHu"]
+__all__ = ["EisensteinHu", "EisensteinHuParameters"]
+
+
+class EisensteinHuParameters(NamedTuple):
+    """What :class:`EisensteinHu` needs and a background cannot provide."""
+
+    omega_b: Real[ArrayLike, ""]
+    """Baryon density parameter today, :math:`\\Omega_b`, with 0 < Ω_b < Ω_m."""
+    n_s: Real[ArrayLike, ""]
+    """Scalar spectral index."""
+    ln10as: Real[ArrayLike, ""]
+    """:math:`\\ln(10^{10} A_s)`, with :math:`A_s` at the pivot 0.05/Mpc."""
+    t_cmb: Real[ArrayLike, ""]
+    """CMB temperature today in K."""
+
+
+def _attributes(background: Any) -> EisensteinHuParameters:
+    """Read the parameters from the attributes of a native cosmology."""
+    return EisensteinHuParameters(
+        omega_b=background.omega_b,
+        n_s=background.n_s,
+        ln10as=background.ln10as,
+        t_cmb=background.t_cmb,
+    )
 
 
 def _t0(
@@ -46,7 +72,7 @@ def _transfer(
     k: Real[ArrayLike, "*shape"],
     omega_b: Real[ArrayLike, ""],
     omega_m_h2: Real[ArrayLike, ""],
-    t_cmb: float,
+    t_cmb: Real[ArrayLike, ""],
 ) -> Float[Array, "*shape"]:
     r"""Matter transfer function ``T(k)`` of EH98 (:math:`\to 1` as :math:`k \to 0`).
 
@@ -119,33 +145,47 @@ def _transfer(
 
 @jax.tree_util.register_dataclass
 @dataclass(frozen=True)
-class EisensteinHu:
+class EisensteinHu[B: Background]:
     """EH98 linear perturbations for a flat cosmology.
 
     Parameters
     ----------
-    background : FlatLCDM or FlatW0WaCDM
-        The cosmology, retained by identity. Its Hubble constant, matter and
-        baryon densities and CMB temperature set the transfer function, its
-        ``n_s`` and ``ln10as`` the primordial spectrum, and its expansion
-        history without radiation the growth. The transfer function
-        needs 0 < Ω_b < Ω_m, which is not checked. Dark energy must
-        be negligible at the initial redshift of the growth ODE, which for
-        :class:`~cosmograd.FlatW0WaCDM` needs ``w0 + wa`` well below zero.
+    background : Background
+        The cosmology, retained by identity. Its Hubble constant and matter
+        density today enter the transfer function and its expansion history
+        the growth. Must be flat.
+    parameters : callable, optional
+        ``parameters(background)``, returning the
+        :class:`EisensteinHuParameters`. The default reads the attributes
+        ``omega_b``, ``n_s``, ``ln10as`` and ``t_cmb`` of the background,
+        which the native cosmologies have. Static; define it at module level
+        so that :func:`jax.jit` does not recompile for every instance.
+    a_initial : float, optional
+        Scale factor at which the growth ODE starts, in (0, 1). The default
+        is :func:`~cosmograd.perturbations.growth.matter_domination_scale_factor`
+        of the background. Static.
     nonlinear : bool, default False
         Nonlinear power is unsupported; True raises NotImplementedError. Static.
 
     Notes
     -----
-    Growth neglects radiation and uses a linear growth ODE,
-    initialized with D = a in matter domination at a = 0.001.
-    Background distances retain the supplied background's radiation treatment.
+    EH98 already captures the radiation era in its transfer function and
+    expects the growth :math:`D_\\mathrm{md}` of a matter-dominated start,
+    equal to the scale factor until dark energy or curvature matter. Growth is
+    therefore D = a before ``a_initial`` and the solution of the linear growth
+    ODE on the supplied background after it. The radiation and dark energy
+    still present at ``a_initial`` shift the amplitude of the power spectrum
+    by under a percent for the default start.
     Massive neutrinos and nonlinear power are unsupported.
     """
 
     __no_type_check__ = True
 
-    background: FlatLCDM | FlatW0WaCDM
+    background: B
+    parameters: Callable[[B], EisensteinHuParameters] = field(
+        default=_attributes, metadata={"static": True}
+    )
+    a_initial: float | None = field(default=None, metadata={"static": True})
     nonlinear: bool = field(default=False, metadata={"static": True})
 
     def __post_init__(self) -> None:
@@ -155,16 +195,26 @@ class EisensteinHu:
     def _growth(
         self, z: Real[ArrayLike, "*shape"], *, normalize: bool = False
     ) -> tuple[Float[Array, "*shape"], Float[Array, "*shape"]]:
-        """Return matter-era growth and its rate, neglecting radiation.
-
-        EH98 already captures the early radiation-era transfer. Retain the
-        late-time matter-plus-dark-energy growth convention by removing
-        radiation from
-        the expansion passed to the ODE, while retaining it in distances.
-        """
-        return linear_growth(
-            replace(self.background, t_cmb=0.0), z, normalize=normalize
+        """Return matter-era growth and its rate."""
+        z = jnp.asarray(z, dtype=float)
+        a_initial = (
+            matter_domination_scale_factor(self.background)
+            if self.a_initial is None
+            else self.a_initial
         )
+        # The margin keeps rounding from sending a redshift at the start of
+        # the integration outside its range, where the solution is NaN.
+        solved = (1 + z) * a_initial < 1 - 1e-6
+        d, f = linear_growth(
+            self.background,
+            jnp.append(jnp.where(solved, z, 0.0).ravel(), 0.0),
+            normalize=False,
+            a_initial=a_initial,
+        )
+        today = d[-1]
+        d = jnp.where(solved, d[:-1].reshape(z.shape), 1 / (1 + z))
+        f = jnp.where(solved, f[:-1].reshape(z.shape), 1.0)
+        return (d / today if normalize else d), f
 
     def growth_function(
         self,
@@ -271,18 +321,14 @@ class EisensteinHu:
         # Smith & Angulo (2019), equation (10), with c = 1 and a g = D_md.
         # D_md must retain its matter-era normalisation for the A_s conversion.
         k = jnp.asarray(k)
-        h2 = (jnp.asarray(self.background.H0) / 100) ** 2
-        om = jnp.asarray(self.background.omega_m)
+        h0 = self.background.hubble_constant
+        h2 = (h0 * C_KM_S / 100) ** 2
+        om = self.background.matter_density_parameter(0.0)
+        parameters = self.parameters(self.background)
         transfer = _transfer(
-            k, jnp.asarray(self.background.omega_b) * h2, om * h2, self.background.t_cmb
+            k, jnp.asarray(parameters.omega_b) * h2, om * h2, parameters.t_cmb
         )
-        delta = (
-            0.4
-            * k**2
-            * transfer
-            * self._growth(z)[0]
-            / (om * self.background.hubble_constant**2)
-        )
+        delta = 0.4 * k**2 * transfer * self._growth(z)[0] / (om * h0**2)
         return 2 * jnp.pi**2 / k**3 * self.primordial_power_spectrum(k) * delta**2
 
     def primordial_power_spectrum(
@@ -313,6 +359,6 @@ class EisensteinHu:
         :math:`P_\\mathcal{R}` here is dimensionless (their
         :math:`\\Delta_\\mathcal{R}^2`).
         """
-        cosmo = self.background
-        amplitude = 1e-10 * jnp.exp(jnp.asarray(cosmo.ln10as))
-        return amplitude * (jnp.asarray(k) / 0.05) ** (jnp.asarray(cosmo.n_s) - 1)
+        parameters = self.parameters(self.background)
+        amplitude = 1e-10 * jnp.exp(jnp.asarray(parameters.ln10as))
+        return amplitude * (jnp.asarray(k) / 0.05) ** (jnp.asarray(parameters.n_s) - 1)

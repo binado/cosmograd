@@ -147,12 +147,14 @@ assert not jax.config.jax_enable_x64
     )
 
 
-def test_matter_domination_scale_factor_is_where_matter_fraction_peaks() -> None:
+@pytest.mark.parametrize("factor", [0.5, 2.0])
+def test_matter_domination_scale_factor_is_where_matter_fraction_peaks(
+    factor: float,
+) -> None:
     background = FlatLCDM(H0=70.0, omega_m=0.3)
     a = matter_domination_scale_factor(background)
     fraction = background.matter_density_parameter(1 / a - 1)
-    for other in (a / 2, 2 * a):
-        assert fraction > background.matter_density_parameter(1 / other - 1)
+    assert fraction > background.matter_density_parameter(1 / (factor * a) - 1)
 
 
 def test_matter_domination_scale_factor_is_earliest_without_radiation() -> None:

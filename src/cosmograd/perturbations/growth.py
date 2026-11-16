@@ -9,7 +9,7 @@ from jaxtyping import Float, Real
 
 from ..background import Background
 
-__all__ = ["linear_growth"]
+__all__ = ["linear_growth", "matter_domination_scale_factor"]
 
 
 def _growth_rhs(x: Real[ArrayLike, ""], y: Array, background: Background) -> Array:
@@ -24,12 +24,48 @@ def _growth_rhs(x: Real[ArrayLike, ""], y: Array, background: Background) -> Arr
     return jnp.stack((u / a32_e - g, 1.5 * (a32_e * omega_m * g - u)))
 
 
+def matter_domination_scale_factor(
+    background: Background,
+    *,
+    a_min: float = 1e-3,
+    n: int = 256,
+) -> Float[Array, ""]:
+    """Scale factor at which matter is the largest fraction of the density.
+
+    This is the epoch where radiation on one side and dark energy and
+    curvature on the other are jointly least important, which makes it the
+    natural place to start :func:`linear_growth` with matter-era initial
+    conditions.
+
+    Parameters
+    ----------
+    background : Background
+        Matter density parameter as a function of redshift.
+    a_min : float, default 0.001
+        Smallest scale factor considered, in (0, 1). Returned when the matter
+        fraction only grows towards the past, as it does without radiation.
+        Static.
+    n : int, default 256
+        Number of log-spaced scale factors searched in ``[a_min, 1]``. Static.
+
+    Returns
+    -------
+    Array
+        The scale factor on the grid that maximises :math:`\\Omega_m(a)`,
+        scalar. Its gradient is stopped: it is a choice of where to start an
+        integration, not a quantity to differentiate.
+    """
+    a = jnp.geomspace(a_min, 1.0, n)
+    omega_m = background.matter_density_parameter(1 / a - 1)
+    return jax.lax.stop_gradient(a[jnp.argmax(omega_m)])
+
+
 def linear_growth(
     background: Background,
     z: Real[ArrayLike, "*shape"],
     *,
     normalize: bool = True,
-    a_initial: float = 1e-3,
+    a_initial: Real[ArrayLike, ""] = 1e-3,
     rtol: float | None = None,
     atol: float | None = None,
     max_steps: int = 512,
@@ -46,14 +82,15 @@ def linear_growth(
     normalize : bool, default True
         Return D(z)/D(0). If False, retain the matter-era normalization D = a
         at the initial scale factor. Does not affect f. Static.
-    a_initial : float, default 0.001
+    a_initial : ArrayLike, default 0.001
         Initial scale factor, in (0, 1). Must lie in matter domination, with
         negligible radiation, curvature and dark energy. Initial conditions
-        are D = a and dD/d ln a = a. Static under JAX transformations. The
+        are D = a and dD/d ln a = a. The
         default (z = 999) is appropriate only for radiation-free backgrounds
         (``t_cmb=0``); backgrounds with radiation need a larger value, bounded
         above by the requirement that dark energy and curvature stay
-        negligible.
+        negligible. :func:`matter_domination_scale_factor` returns the best
+        compromise.
     rtol, atol : float, optional
         Relative and absolute tolerances for the state
         (D/a, a^(1/2) (H/H_0) dD/d ln a). Defaults are max(1e-8, 10 eps) and
@@ -136,6 +173,7 @@ def linear_growth(
     eps = float(jnp.finfo(z.dtype).eps)
     rtol = max(1e-8, 10 * eps) if rtol is None else rtol
     atol = max(1e-10, 10 * eps) if atol is None else atol
+    a_initial = jnp.asarray(a_initial, dtype=z.dtype)
     u0 = (
         a_initial**1.5
         * background.hubble_parameter(1 / a_initial - 1)

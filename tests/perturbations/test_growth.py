@@ -16,7 +16,7 @@ from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
 from cosmograd import FlatLCDM
-from cosmograd.perturbations import linear_growth
+from cosmograd.perturbations import linear_growth, matter_domination_scale_factor
 
 from ..background.reference import EinsteinDeSitter
 
@@ -144,4 +144,19 @@ assert not jax.config.jax_enable_x64
         [sys.executable, "-c", code],
         check=True,
         env=os.environ | {"JAX_ENABLE_X64": "0"},
+    )
+
+
+def test_matter_domination_scale_factor_is_where_matter_fraction_peaks() -> None:
+    background = FlatLCDM(H0=70.0, omega_m=0.3)
+    a = matter_domination_scale_factor(background)
+    fraction = background.matter_density_parameter(1 / a - 1)
+    for other in (a / 2, 2 * a):
+        assert fraction > background.matter_density_parameter(1 / other - 1)
+
+
+def test_matter_domination_scale_factor_is_earliest_without_radiation() -> None:
+    background = FlatLCDM(H0=70.0, omega_m=0.3, t_cmb=0.0)
+    np.testing.assert_allclose(
+        matter_domination_scale_factor(background, a_min=1e-2), 1e-2
     )

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - Added `cosmograd.background.functional`: distances and the matter density as
   pure functions of a `hubble_parameter(params, z)` callable and any pytree of

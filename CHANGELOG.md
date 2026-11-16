@@ -5,6 +5,8 @@
 - Added `cosmograd.background.functional`: distances and the matter density as
   pure functions of a `hubble_parameter(params, z)` callable and any pytree of
   parameters. The native backgrounds now delegate to them.
+- Added `GenericBackground`, a `Background` over such a callable and parameters
+  in the caller's own layout (dict, named tuple, dataclass).
 
 ## 0.1.1
 

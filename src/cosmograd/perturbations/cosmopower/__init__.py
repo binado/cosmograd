@@ -2,17 +2,18 @@
 
 :class:`CosmoPower` emulates the CLASS linear spectrum and
 the HMcode nonlinear boost (probe ``mpk_boost``) of Spurio Mancini et al.
-(2022), for a supplied :class:`~cosmograd.FlatLCDM` cosmology.
+(2022), for a supplied flat :math:`\\Lambda\\mathrm{CDM}` cosmology.
 The emulators are loaded on first use and never become pytree leaves.
 """
 
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache, partial
 from types import ModuleType
-from typing import Any
+from typing import Any, NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -21,9 +22,10 @@ from jax import Array
 from jax.typing import ArrayLike
 from jaxtyping import Float, Real
 
-from ...background import FlatLCDM
+from ...background import Background
+from ...constants import C_KM_S
 
-__all__ = ["CosmoPower", "load_cosmopower"]
+__all__ = ["CosmoPower", "CosmoPowerParameters", "load_cosmopower"]
 
 K_PIVOT: float = 0.05
 """Pivot wavenumber of the primordial spectrum in 1/Mpc (CLASS default)."""
@@ -77,13 +79,31 @@ def _log_modes(probe: str) -> np.ndarray:
     return np.log(np.asarray(_emulator(probe).modes, dtype=float))
 
 
+class CosmoPowerParameters(NamedTuple):
+    """What :class:`CosmoPower` needs and a background cannot provide."""
+
+    omega_b: Real[ArrayLike, ""]
+    """Baryon density parameter today, :math:`\\Omega_b`."""
+    n_s: Real[ArrayLike, ""]
+    """Scalar spectral index."""
+    ln10as: Real[ArrayLike, ""]
+    """:math:`\\ln(10^{10} A_s)`, with :math:`A_s` at the pivot 0.05/Mpc."""
+
+
+def _attributes(background: Any) -> CosmoPowerParameters:
+    """Read the parameters from the attributes of a native cosmology."""
+    return CosmoPowerParameters(
+        omega_b=background.omega_b, n_s=background.n_s, ln10as=background.ln10as
+    )
+
+
 @partial(
     jax.tree_util.register_dataclass,
     data_fields=["background", "c_min", "eta_0"],
-    meta_fields=["k_growth", "nonlinear"],
+    meta_fields=["parameters", "k_growth", "nonlinear"],
 )
 @dataclass(frozen=True)
-class CosmoPower:
+class CosmoPower[B: Background]:
     """Flat :math:`\\Lambda\\mathrm{CDM}` spectra from the CosmoPower-JAX emulators.
 
     The linear spectrum comes from the ``mpk_lin`` network and the nonlinear
@@ -100,10 +120,17 @@ class CosmoPower:
 
     Parameters
     ----------
-    background : FlatLCDM
-        The cosmology, retained by identity. Its ``H0``, ``omega_m``,
-        ``omega_b``, ``n_s`` and ``ln10as`` set the emulator inputs (baryons
-        plus cold dark matter; neutrinos are massless).
+    background : Background
+        The cosmology, retained by identity. Its Hubble constant and matter
+        density today are emulator inputs (baryons plus cold dark matter;
+        neutrinos are massless). Must be flat :math:`\\Lambda\\mathrm{CDM}`:
+        the emulators know no other expansion history.
+    parameters : callable, optional
+        ``parameters(background)``, returning the
+        :class:`CosmoPowerParameters`. The default reads the attributes
+        ``omega_b``, ``n_s`` and ``ln10as`` of the background, which the
+        native cosmologies have. Static; define it at module level so that
+        :func:`jax.jit` does not recompile for every instance.
     c_min : ArrayLike, default 3.13
         HMcode halo concentration amplitude. Only affects ``nonlinear=True``.
     eta_0 : ArrayLike, default 0.603
@@ -144,7 +171,8 @@ class CosmoPower:
     # see :class:`~cosmograd.FlatLCDM`.
     __no_type_check__ = True
 
-    background: FlatLCDM
+    background: B
+    parameters: Callable[[B], CosmoPowerParameters] = _attributes
     c_min: Real[ArrayLike, ...] = 3.13
     eta_0: Real[ArrayLike, ...] = 0.603
     k_growth: float = 0.01
@@ -164,16 +192,17 @@ class CosmoPower:
             Every input name used by ``mpk_lin`` and ``mpk_boost``, each an
             array of shape ``(n,)``.
         """
-        cosmo = self.background
-        h = jnp.asarray(cosmo.H0) / 100
+        parameters = self.parameters(self.background)
+        h = self.background.hubble_constant * C_KM_S / 100
         h2 = h**2
-        omega_b = jnp.asarray(cosmo.omega_b)
+        omega_m = self.background.matter_density_parameter(0.0)
+        omega_b = jnp.asarray(parameters.omega_b)
         params = {
             "omega_b": omega_b * h2,
-            "omega_cdm": (jnp.asarray(cosmo.omega_m) - omega_b) * h2,
+            "omega_cdm": (omega_m - omega_b) * h2,
             "h": h,
-            "n_s": cosmo.n_s,
-            "ln10^{10}A_s": cosmo.ln10as,
+            "n_s": parameters.n_s,
+            "ln10^{10}A_s": parameters.ln10as,
             "cmin": self.c_min,
             "eta_0": self.eta_0,
         }
@@ -353,8 +382,8 @@ class CosmoPower:
             :math:`\\mathcal{P}_\\mathcal{R}(k)`, dimensionless, with the shape
             of ``k``. The pivot is ``K_PIVOT`` = 0.05/Mpc.
         """
-        cosmo = self.background
-        a_s = 1e-10 * jnp.exp(jnp.asarray(cosmo.ln10as))
+        parameters = self.parameters(self.background)
+        a_s = 1e-10 * jnp.exp(jnp.asarray(parameters.ln10as))
         return a_s * (jnp.asarray(k, dtype=float) / K_PIVOT) ** (
-            jnp.asarray(cosmo.n_s) - 1
+            jnp.asarray(parameters.n_s) - 1
         )

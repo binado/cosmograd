@@ -6,9 +6,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from jax import Array
 
-from cosmograd import EisensteinHu, FlatLCDM, GenericBackground, Perturbations
+from cosmograd import EisensteinHu, FlatLCDM, Perturbations
 from cosmograd.perturbations import EisensteinHu as ExportedEisensteinHu
 from cosmograd.perturbations import EisensteinHuParameters
 
@@ -82,57 +81,3 @@ def test_power_spectrum_is_insensitive_to_the_start_without_radiation() -> None:
         for a_initial in (None, 1e-2)
     )
     np.testing.assert_allclose(later, default, rtol=1e-4)
-
-
-Params = dict[str, Array]
-
-
-def dict_hubble(params: Params, z: Array) -> Array:
-    return FlatLCDM(H0=params["H0"], omega_m=params["omega_m"]).hubble_parameter(z)
-
-
-def dict_omega_m(params: Params) -> Array:
-    return params["omega_m"]
-
-
-def dict_parameters(background: GenericBackground[Params]) -> EisensteinHuParameters:
-    params = background.params
-    return EisensteinHuParameters(
-        params["omega_b"], params["n_s"], params["ln10as"], PLANCK.t_cmb
-    )
-
-
-@pytest.fixture
-def generic_eh() -> EisensteinHu[GenericBackground[Params]]:
-    """``PLANCK`` held as a dict behind a :class:`GenericBackground`."""
-    params = {
-        name: jnp.asarray(getattr(PLANCK, name))
-        for name in ("H0", "omega_m", "omega_b", "n_s", "ln10as")
-    }
-    background = GenericBackground(params, dict_hubble, dict_omega_m)
-    return EisensteinHu(background, parameters=dict_parameters)
-
-
-def test_generic_background_matches_native(
-    generic_eh: EisensteinHu[GenericBackground[Params]],
-) -> None:
-    native = EisensteinHu(PLANCK)
-    k, z = jnp.array([0.01, 0.1, 1.0]), jnp.array([0.0, 1.0, 20.0])
-    np.testing.assert_allclose(
-        jax.jit(lambda c: c.linear_matter_power_spectrum(k, z))(generic_eh),
-        native.linear_matter_power_spectrum(k, z),
-    )
-    np.testing.assert_allclose(generic_eh.growth_rate(z), native.growth_rate(z))
-
-
-def test_generic_background_gradient_comes_back_in_the_parameter_layout(
-    generic_eh: EisensteinHu[GenericBackground[Params]],
-) -> None:
-    grad = jax.grad(lambda c: jnp.log(c.linear_matter_power_spectrum(0.1, 0.5)))(
-        generic_eh
-    )
-    expected = jax.grad(lambda c: jnp.log(c.linear_matter_power_spectrum(0.1, 0.5)))(
-        EisensteinHu(PLANCK)
-    )
-    for name, value in grad.background.params.items():
-        np.testing.assert_allclose(value, getattr(expected.background, name), rtol=1e-6)

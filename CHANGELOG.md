@@ -7,9 +7,11 @@
   parameters. The native backgrounds now delegate to them.
 - Added `GenericBackground`, a `Background` over such a callable and parameters
   in the caller's own layout (dict, named tuple, dataclass).
-- `EisensteinHu` now accepts any flat `Background`. A `parameters` accessor
-  supplies the baryon density, primordial parameters and CMB temperature, and
-  defaults to reading them from the cosmology's attributes.
+- `EisensteinHu`, `CosmoPower` and `BaccoEmu` now accept any `Background` of
+  the expansion history they model. A `parameters` accessor supplies what the
+  background cannot (baryon density, primordial parameters and, per backend,
+  the CMB temperature or `w0` and `wa`), and defaults to reading the
+  cosmology's attributes.
 - `EisensteinHu` no longer removes radiation from the background for growth.
   The growth ODE starts at `a_initial`, by default where the matter fraction
   peaks (`matter_domination_scale_factor`), and growth is the scale factor

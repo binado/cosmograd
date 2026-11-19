@@ -81,7 +81,7 @@ class KRangeExtrapolation:
     """Mixin giving a backend an opt-in extrapolated linear spectrum.
 
     The host provides ``k_min`` and ``k_max`` (1/Mpc), the static flags
-    ``extrapolate`` and ``slope_fraction``, ``primordial_power_spectrum`` and
+    ``extrapolate`` and ``extrapolation_slope_fraction``, ``primordial_power_spectrum`` and
     ``_log_pk_at(k, z)``, the in-range :math:`\\ln P_\\mathrm{lin}`.
     """
 
@@ -98,5 +98,5 @@ class KRangeExtrapolation:
             z,
             self.k_min,
             self.k_max,
-            self.slope_fraction,
+            self.extrapolation_slope_fraction,
         )

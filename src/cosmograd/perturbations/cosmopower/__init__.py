@@ -106,7 +106,7 @@ def _attributes(background: Any) -> CosmoPowerParameters:
         "k_growth",
         "nonlinear",
         "extrapolate",
-        "slope_fraction",
+        "extrapolation_slope_fraction",
     ],
 )
 @dataclass(frozen=True)
@@ -151,9 +151,9 @@ class CosmoPower[B: Background](KRangeExtrapolation):
     extrapolate : bool, default False
         Continue the linear spectrum outside ``[k_min, k_max]``, see Notes.
         Static.
-    slope_fraction : float, default 0.9
+    extrapolation_slope_fraction : float, default 0.9
         The log-log slope above ``k_max`` is measured between
-        ``slope_fraction * k_max`` and ``k_max``; must lie in (0, 1). Static.
+        ``extrapolation_slope_fraction * k_max`` and ``k_max``; must lie in (0, 1). Static.
 
     Notes
     -----
@@ -173,7 +173,7 @@ class CosmoPower[B: Background](KRangeExtrapolation):
     read off it, are continued smoothly instead. Below ``k_min`` the transfer
     function is taken constant, :math:`P \\propto k\\,\\mathcal{P}_\\mathcal{R}(k)`;
     above ``k_max`` the log-log slope measured over
-    ``[slope_fraction * k_max, k_max]`` continues. The HMcode boost stays
+    ``[extrapolation_slope_fraction * k_max, k_max]`` continues. The HMcode boost stays
     clamped to its grid.
 
     The emulators were trained on CLASS with massless neutrinos, matching the
@@ -198,7 +198,7 @@ class CosmoPower[B: Background](KRangeExtrapolation):
     k_growth: float = 0.01
     nonlinear: bool = False
     extrapolate: bool = False
-    slope_fraction: float = 0.9
+    extrapolation_slope_fraction: float = 0.9
 
     @property
     def k_min(self) -> Float[Array, ""]:

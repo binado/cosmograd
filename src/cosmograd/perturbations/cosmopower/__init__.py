@@ -24,6 +24,7 @@ from jaxtyping import Float, Real
 
 from ...background import Background
 from ...constants import C_KM_S
+from .._extrapolation import KRangeExtrapolation
 
 __all__ = ["CosmoPower", "CosmoPowerParameters", "load_cosmopower"]
 
@@ -100,10 +101,16 @@ def _attributes(background: Any) -> CosmoPowerParameters:
 @partial(
     jax.tree_util.register_dataclass,
     data_fields=["background", "c_min", "eta_0"],
-    meta_fields=["parameters", "k_growth", "nonlinear"],
+    meta_fields=[
+        "parameters",
+        "k_growth",
+        "nonlinear",
+        "extrapolate",
+        "extrapolation_slope_fraction",
+    ],
 )
 @dataclass(frozen=True)
-class CosmoPower[B: Background]:
+class CosmoPower[B: Background](KRangeExtrapolation):
     """Flat :math:`\\Lambda\\mathrm{CDM}` spectra from the CosmoPower-JAX emulators.
 
     The linear spectrum comes from the ``mpk_lin`` network and the nonlinear
@@ -141,6 +148,12 @@ class CosmoPower[B: Background]:
 
     nonlinear : bool, default False
         Apply the HMcode boost to the matter power spectrum. Static.
+    extrapolate : bool, default False
+        Continue the linear spectrum outside ``[k_min, k_max]``, see Notes.
+        Static.
+    extrapolation_slope_fraction : float, default 0.9
+        The log-log slope above ``k_max`` is measured between
+        ``extrapolation_slope_fraction * k_max`` and ``k_max``; must lie in (0, 1). Static.
 
     Notes
     -----
@@ -153,8 +166,15 @@ class CosmoPower[B: Background]:
       :math:`\\ln(10^{10} A_s) \\in [1.61, 3.91]`,
       :math:`c_\\mathrm{min} \\in [2, 4]`, :math:`\\eta_0 \\in [0.5, 1]`;
     - :math:`0 \\le z \\le 5`;
-    - :math:`10^{-5} \\le k \\le 9.8` 1/Mpc. Outside this range the
-      spectrum is held at its value at the nearest end.
+    - :math:`10^{-5} \\le k \\le 9.8` 1/Mpc (:attr:`k_min`, :attr:`k_max`).
+      By default the spectrum is held at its value at the nearest end.
+
+    With ``extrapolate=True`` the linear spectrum, and the growth functions
+    read off it, are continued smoothly instead. Below ``k_min`` the transfer
+    function is taken constant, :math:`P \\propto k\\,\\mathcal{P}_\\mathcal{R}(k)`;
+    above ``k_max`` the log-log slope measured over
+    ``[extrapolation_slope_fraction * k_max, k_max]`` continues. The HMcode boost stays
+    clamped to its grid.
 
     The emulators were trained on CLASS with massless neutrinos, matching the
     radiation content of :class:`~cosmograd.FlatLCDM` at its defaults. Custom
@@ -177,6 +197,18 @@ class CosmoPower[B: Background]:
     eta_0: Real[ArrayLike, ...] = 0.603
     k_growth: float = 0.01
     nonlinear: bool = False
+    extrapolate: bool = False
+    extrapolation_slope_fraction: float = 0.9
+
+    @property
+    def k_min(self) -> Float[Array, ""]:
+        """Smallest wavenumber of the emulator grid, in 1/Mpc."""
+        return jnp.asarray(np.exp(_log_modes("mpk_lin")[0]))
+
+    @property
+    def k_max(self) -> Float[Array, ""]:
+        """Largest wavenumber of the emulator grid, in 1/Mpc."""
+        return jnp.asarray(np.exp(_log_modes("mpk_lin")[-1]))
 
     def _emulator_inputs(self, z: Array) -> dict[str, Array]:
         """Translate the parameters to CosmoPower's names, one row per redshift.
@@ -233,19 +265,14 @@ class CosmoPower[B: Background]:
         out = emulator.predict(x).reshape(flat.shape[0], -1)
         return jnp.log(out).reshape(*z.shape, -1)
 
-    def _log_power(self, k: ArrayLike, z: ArrayLike, nonlinear: bool) -> Array:
-        """:math:`\\ln P(k, z)` interpolated from the emulator grid.
+    def _interpolate(self, probe: str, k: Array, z: Array) -> Array:
+        """Table of one probe interpolated at ``k``, clamped to the grid.
 
         The emulator runs once per element of ``z`` (before broadcasting), so
         an outer-product grid ``k[:, None], z[None, :]`` costs one network
         pass per redshift.
         """
-        k = jnp.asarray(k, dtype=float)
-        z = jnp.asarray(z, dtype=float)
-        table = self._log_spectrum("mpk_lin", z)
-        if nonlinear:
-            table = table + self._log_spectrum("mpk_boost", z)
-
+        table = self._log_spectrum(probe, z)
         log_modes = jnp.asarray(_log_modes("mpk_lin"))
         log_k = jnp.clip(jnp.log(k), log_modes[0], log_modes[-1])
         upper = jnp.clip(jnp.searchsorted(log_modes, log_k), 1, log_modes.size - 1)
@@ -260,6 +287,18 @@ class CosmoPower[B: Background]:
             return jnp.take_along_axis(table, index, axis=-1)[..., 0]
 
         return (1 - weight) * gather(lower) + weight * gather(upper)
+
+    def _log_pk_at(self, k: Array, z: Array) -> Array:
+        return self._interpolate("mpk_lin", k, z)
+
+    def _log_power(self, k: ArrayLike, z: ArrayLike, nonlinear: bool) -> Array:
+        """:math:`\\ln P(k, z)`: linear spectrum, extrapolated if enabled, plus boost."""
+        k = jnp.asarray(k, dtype=float)
+        z = jnp.asarray(z, dtype=float)
+        log_pk = self._log_pk_extrapolated(k, z)
+        if nonlinear:
+            log_pk = log_pk + self._interpolate("mpk_boost", k, z)
+        return log_pk
 
     def matter_power_spectrum(
         self,

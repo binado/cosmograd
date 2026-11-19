@@ -537,7 +537,7 @@ requires-dist = [
     { name = "diffrax", specifier = ">=0.7.2" },
     { name = "jax", specifier = ">=0.10" },
     { name = "jaxtyping", specifier = ">=0.3.11" },
-    { name = "numpy", specifier = ">=2.5.4" },
+    { name = "numpy", specifier = ">2.0" },
     { name = "platformdirs", marker = "extra == 'bacco'", specifier = ">=4.0" },
 ]
 provides-extras = ["cosmopower", "bacco"]

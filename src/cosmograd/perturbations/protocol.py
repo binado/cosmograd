@@ -20,7 +20,7 @@ from jaxtyping import Float, Real
 
 from ..background import Background
 
-__all__ = ["Perturbations"]
+__all__ = ["KRange", "Perturbations"]
 
 
 @runtime_checkable
@@ -166,4 +166,19 @@ class Perturbations(Protocol):
             :math:`\\mathcal{P}_\\mathcal{R}(k)`, dimensionless, with the shape
             of ``k``.
         """
+        ...
+
+
+@runtime_checkable
+class KRange(Protocol):
+    """A spectrum with a trusted wavenumber range, as emulators have."""
+
+    @property
+    def k_min(self) -> Float[Array, ""]:
+        """Smallest trusted wavenumber in 1/Mpc."""
+        ...
+
+    @property
+    def k_max(self) -> Float[Array, ""]:
+        """Largest trusted wavenumber in 1/Mpc."""
         ...

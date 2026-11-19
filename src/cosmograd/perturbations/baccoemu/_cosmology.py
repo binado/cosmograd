@@ -14,6 +14,7 @@ from jaxtyping import Float, Real
 
 from ...background import Background
 from ...constants import C_KM_S
+from .._extrapolation import KRangeExtrapolation
 from ._emulator import (
     LINEAR_KEYS,
     NONLINEAR_KEYS,
@@ -76,10 +77,17 @@ def _attributes(background: Any) -> BaccoEmuParameters:
 @partial(
     jax.tree_util.register_dataclass,
     data_fields=["background", "sigma8_cold", "neutrino_mass"],
-    meta_fields=["parameters", "model_name", "cold", "nonlinear"],
+    meta_fields=[
+        "parameters",
+        "model_name",
+        "cold",
+        "nonlinear",
+        "extrapolate",
+        "slope_fraction",
+    ],
 )
 @dataclass(frozen=True)
-class BaccoEmu[B: Background]:
+class BaccoEmu[B: Background](KRangeExtrapolation):
     """Linear and nonlinear matter power spectra from the bacco emulators.
 
     A differentiable JAX port of ``baccoemu.Matter_powerspectrum`` (Aricò et
@@ -120,6 +128,12 @@ class BaccoEmu[B: Background]:
         matter one, and cold-matter growth. Static.
     nonlinear : bool, default False
         Return the nonlinear matter power spectrum. Static.
+    extrapolate : bool, default False
+        Continue the linear spectrum outside ``[k_min, k_max]``, see Notes.
+        Static.
+    slope_fraction : float, default 0.9
+        The log-log slope above ``k_max`` is measured between
+        ``slope_fraction * k_max`` and ``k_max``; must lie in (0, 1). Static.
 
     Notes
     -----
@@ -130,9 +144,18 @@ class BaccoEmu[B: Background]:
     :math:`z \\le 9`; the ``"Angulo2021"`` nonlinear network covers
     :math:`k \\le 4.9\\,h\\,\\mathrm{Mpc}^{-1}` and :math:`z \\le 1.5`, and
     ``"Arico2023"`` :math:`k \\le 9.8\\,h\\,\\mathrm{Mpc}^{-1}` and
-    :math:`z \\le 2.6`. Outside the linear k range the spectrum is
-    extrapolated as a power law; below the nonlinear grid the nonlinear
-    spectrum equals the linear one.
+    :math:`z \\le 2.6`. By default the spectrum outside the linear k range,
+    :attr:`k_min` to :attr:`k_max` (which scale with :math:`h`), is the
+    emulator's own power-law extrapolation; below the nonlinear grid the
+    nonlinear spectrum equals the linear one.
+
+    With ``extrapolate=True`` the linear spectrum, and growth at an explicit
+    ``k``, follow a documented policy instead. Below ``k_min`` the transfer
+    function is taken constant,
+    :math:`P \\propto k\\,\\mathcal{P}_\\mathcal{R}(k)`; above ``k_max`` the
+    log-log slope measured over ``[slope_fraction * k_max, k_max]`` continues.
+    The nonlinear boost keeps its own behaviour and multiplies the extrapolated
+    linear spectrum.
 
     The emulated expansion history is not exactly that of
     :attr:`background`, which treats massive neutrinos as matter at every
@@ -157,6 +180,18 @@ class BaccoEmu[B: Background]:
     model_name: ModelName = "Angulo2021"
     cold: bool = False
     nonlinear: bool = False
+    extrapolate: bool = False
+    slope_fraction: float = 0.9
+
+    @property
+    def k_min(self) -> Float[Array, ""]:
+        """Smallest wavenumber of the linear emulator in 1/Mpc, :math:`10^{-4}\\,h`."""
+        return jnp.asarray(self._emulator.k_lin[0]) * self._h
+
+    @property
+    def k_max(self) -> Float[Array, ""]:
+        """Largest wavenumber of the linear emulator in 1/Mpc, :math:`50\\,h`."""
+        return jnp.asarray(self._emulator.k_lin[-1]) * self._h
 
     @property
     def _emulator(self) -> Emulator:
@@ -243,6 +278,12 @@ class BaccoEmu[B: Background]:
         Array
             Dimensionless, with the broadcast shape of ``k`` and ``z``.
         """
+        if k is not None and self.extrapolate:
+            z = jnp.asarray(z, dtype=float)
+            return jnp.exp(
+                0.5
+                * (self._log_pk_extrapolated(k, z) - self._log_pk_extrapolated(k, 0.0))
+            )
         log_pk_today = self._log_pk_lin(self._bacco_params(0.0))
 
         def half_log_ratio(zi: Float[Array, ""]) -> Float[Array, " k_lin"]:
@@ -346,14 +387,16 @@ class BaccoEmu[B: Background]:
             :math:`P_\\mathrm{lin}(k, z)` in :math:`\\mathrm{Mpc}^3`, with the
             broadcast shape of ``k`` and ``z``.
         """
-        log_k_lin = np.log(self._emulator.k_lin)
+        return jnp.exp(self._log_pk_extrapolated(k, z))
+
+    def _log_pk_at(self, k: Array, z: Array) -> Array:
         log_pk_h = self._evaluate(
             lambda zi: self._log_pk_lin(self._bacco_params(zi)),
-            log_k_lin,
+            np.log(self._emulator.k_lin),
             self._k_h(k),
             z,
         )
-        return jnp.exp(log_pk_h) / self._h**3
+        return log_pk_h - 3 * jnp.log(self._h)
 
     def primordial_power_spectrum(
         self,

@@ -5,8 +5,7 @@
 - Added opt-in `extrapolate=True` (and `slope_fraction`) to `CosmoPower` and
   `BaccoEmu`: the linear spectrum, and growth read off it, continue smoothly
   outside the emulator's k range, as `k P_R(k)` below `k_min` and with the
-  measured log-log slope above `k_max`. Added `k_min`/`k_max` properties and the
-  `KRange` protocol. Defaults are unchanged.
+  measured log-log slope above `k_max`. Added `k_min`/`k_max` properties. Defaults are unchanged.
 
 ## 0.2.0
 

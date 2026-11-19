@@ -7,7 +7,6 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from cosmograd.perturbations import KRange
 from cosmograd.perturbations._extrapolation import extrapolate_log_pk
 from cosmograd.perturbations.baccoemu import BaccoEmu
 from cosmograd.perturbations.cosmopower import CosmoPower
@@ -106,8 +105,7 @@ def emulator(request):
 Z = jnp.array([0.0, 0.5])
 
 
-def test_satisfies_krange(emulator):
-    assert isinstance(emulator, KRange)
+def test_k_range_is_ordered(emulator):
     assert emulator.k_min < emulator.k_max
 
 

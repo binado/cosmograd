@@ -62,7 +62,7 @@ ref = [
     "cloelib>=0.11",
     "jax-cosmo>=0.1.0",
     # jax-cosmo imports pkg_resources, which setuptools 82 removed.
-    "setuptools<81",
+    "setuptools<85",
 ]
 dev = [
     "cosmograd[bacco,cosmopower]",

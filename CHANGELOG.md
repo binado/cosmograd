@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - Added opt-in `extrapolate=True` (and `extrapolation_slope_fraction`) to `CosmoPower` and
   `BaccoEmu`: the linear spectrum, and growth read off it, continue smoothly

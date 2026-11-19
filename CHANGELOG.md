@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- Relaxed the `numpy` requirement from `>=2.5.4` to `>2.0`. The package
+  uses only long-stable numpy API, and `jax` already requires `numpy>=2.0`.
+
 ## 0.3.0
 
 - Added opt-in `extrapolate=True` (and `extrapolation_slope_fraction`) to `CosmoPower` and

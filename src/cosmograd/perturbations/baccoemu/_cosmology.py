@@ -149,7 +149,7 @@ class BaccoEmu[B: Background](KRangeExtrapolation):
     emulator's own power-law extrapolation; below the nonlinear grid the
     nonlinear spectrum equals the linear one.
 
-    With ``extrapolate=True`` the linear spectrum, and growth at an explicit
+    With ``extrapolate=True`` the linear spectrum, and growth and growth rate at an explicit
     ``k``, follow a documented policy instead. Below ``k_min`` the transfer
     function is taken constant,
     :math:`P \\propto k\\,\\mathcal{P}_\\mathcal{R}(k)`; above ``k_max`` the
@@ -317,6 +317,15 @@ class BaccoEmu[B: Background](KRangeExtrapolation):
         Array
             Dimensionless, with the broadcast shape of ``k`` and ``z``.
         """
+        if k is not None and self.extrapolate:
+            # The same stencil in ln a, applied to the extrapolated spectrum so
+            # that the rate stays the derivative of ``growth_function``.
+            z = jnp.asarray(z, dtype=float)
+            terms = [
+                w * self._log_pk_extrapolated(k, (1 + z) * np.exp(-dx) - 1)
+                for dx, w in zip(_GROWTH_STENCIL, _GROWTH_WEIGHTS, strict=True)
+            ]
+            return 0.5 * sum(terms)
 
         def rate(zi: Float[Array, ""]) -> Float[Array, " k_lin"]:
             p = self._bacco_params(zi)

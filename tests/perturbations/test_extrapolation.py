@@ -160,3 +160,15 @@ def test_growth_matches_spectrum_out_of_range(emulator):
         on.linear_matter_power_spectrum(k, Z) / on.linear_matter_power_spectrum(k, 0.0)
     )
     np.testing.assert_allclose(on.growth_function(Z, k=k), expected, rtol=1e-5)
+
+
+def test_growth_rate_is_derivative_of_growth_out_of_range(emulator):
+    on = replace(emulator, extrapolate=True)
+    k = jnp.array([emulator.k_min * 1e-2, emulator.k_max * 5])[:, None]
+    z = jnp.array([0.3, 0.8])
+    dz = 1e-2
+    dlnd_dz = (
+        jnp.log(on.growth_function(z + dz, k=k))
+        - jnp.log(on.growth_function(z - dz, k=k))
+    ) / (2 * dz)
+    np.testing.assert_allclose(on.growth_rate(z, k=k), -(1 + z) * dlnd_dz, rtol=5e-2)

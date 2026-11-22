@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.3.2] - 2026-11-22
+
 - CosmoPower continues linear power and growth above redshift 5 using the
   background's linear-growth ODE, anchored to the emulator at redshift 5.
   Nonlinear power still uses the emulator prediction outside its training range.

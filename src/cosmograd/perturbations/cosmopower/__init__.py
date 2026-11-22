@@ -25,11 +25,14 @@ from jaxtyping import Float, Real
 from ...background import Background
 from ...constants import C_KM_S
 from .._extrapolation import KRangeExtrapolation
+from ..growth import linear_growth, matter_domination_scale_factor
 
 __all__ = ["CosmoPower", "CosmoPowerParameters", "load_cosmopower"]
 
 K_PIVOT: float = 0.05
 """Pivot wavenumber of the primordial spectrum in 1/Mpc (CLASS default)."""
+
+_Z_MAX = 5.0
 
 
 def load_cosmopower() -> ModuleType:
@@ -119,7 +122,7 @@ class CosmoPower[B: Background](KRangeExtrapolation):
     :math:`\\ln k` and :math:`\\ln P`. The emulators already work in 1/Mpc and
     :math:`\\mathrm{Mpc}^3`, so no unit conversion is needed.
 
-    Growth is read off the emulated linear spectrum,
+    Growth is read off the linear spectrum,
     :math:`D(z, k) = \\sqrt{P(k, z) / P(k, 0)}` and
     :math:`f = -\\tfrac{1}{2}(1 + z)\\,\\partial_z \\ln P(k, z)` by automatic
     differentiation. Without ``k`` both are evaluated at ``k_growth``, where
@@ -169,6 +172,19 @@ class CosmoPower[B: Background](KRangeExtrapolation):
     - :math:`10^{-5} \\le k \\le 9.8` 1/Mpc (:attr:`k_min`, :attr:`k_max`).
       By default the spectrum is held at its value at the nearest end.
 
+    Above ``z = 5``, linear power uses the spectrum at ``z = 5`` scaled by
+    :math:`[D_{\\mathrm{ODE}}(z) / D_{\\mathrm{ODE}}(5)]^2`. The ODE uses the
+    supplied background and starts at the scale factor selected by
+    :func:`~cosmograd.perturbations.growth.matter_domination_scale_factor`.
+    Redshifts before that epoch return NaN. The power and growth factor are
+    continuous at the boundary, where the growth rate takes the emulator
+    value and may jump.
+
+    With ``nonlinear=True``, :meth:`matter_power_spectrum` evaluates both
+    emulators at the requested redshift. Its predictions above ``z = 5``
+    are outside their training range. The explicit linear power and growth
+    methods still use the ODE continuation.
+
     With ``extrapolate=True`` the linear spectrum, and the growth functions
     read off it, are continued smoothly instead. Below ``k_min`` the transfer
     function is taken constant, :math:`P \\propto k\\,\\mathcal{P}_\\mathcal{R}(k)`;
@@ -179,7 +195,7 @@ class CosmoPower[B: Background](KRangeExtrapolation):
     The emulators were trained on CLASS with massless neutrinos, matching the
     radiation content of :class:`~cosmograd.FlatLCDM` at its defaults. Custom
     radiation settings are retained for background calculations but do not
-    affect the emulated spectra.
+    affect the emulated spectra. They do affect the ODE continuation.
 
     References
     ----------
@@ -291,14 +307,38 @@ class CosmoPower[B: Background](KRangeExtrapolation):
     def _log_pk_at(self, k: Array, z: Array) -> Array:
         return self._interpolate("mpk_lin", k, z)
 
+    def _log_growth_correction(self, z: Array, above: Array) -> Array:
+        """Return the log-power correction for redshifts above the training range."""
+        a_initial = matter_domination_scale_factor(self.background)
+        # Use the solver's log-scale-factor coordinates at the initial endpoint.
+        supported = -jnp.log1p(z) >= jnp.log(a_initial)
+        z_solve = jnp.where(above & supported, z, _Z_MAX)
+        d, _ = linear_growth(
+            self.background,
+            jnp.append(z_solve.ravel(), _Z_MAX),
+            normalize=False,
+            a_initial=a_initial,
+        )
+        correction = 2 * (jnp.log(d[:-1].reshape(z.shape)) - jnp.log(d[-1]))
+        return jnp.where(above, jnp.where(supported, correction, jnp.nan), 0.0)
+
     def _log_power(self, k: ArrayLike, z: ArrayLike, nonlinear: bool) -> Array:
         """:math:`\\ln P(k, z)`: linear spectrum, extrapolated if enabled, plus boost."""
         k = jnp.asarray(k, dtype=float)
         z = jnp.asarray(z, dtype=float)
-        log_pk = self._log_pk_extrapolated(k, z)
         if nonlinear:
-            log_pk = log_pk + self._interpolate("mpk_boost", k, z)
-        return log_pk
+            return self._log_pk_extrapolated(k, z) + self._interpolate(
+                "mpk_boost", k, z
+            )
+
+        above = z > _Z_MAX
+        z_emulator = jnp.where(above, _Z_MAX, z)
+        correction = jax.lax.cond(
+            jnp.any(above),
+            lambda: self._log_growth_correction(z, above),
+            lambda: jnp.zeros_like(z),
+        )
+        return self._log_pk_extrapolated(k, z_emulator) + correction
 
     def matter_power_spectrum(
         self,
@@ -312,7 +352,8 @@ class CosmoPower[B: Background](KRangeExtrapolation):
         k : ArrayLike
             Wavenumber in 1/Mpc, positive.
         z : ArrayLike
-            Redshift in ``[0, 5]``. Broadcast elementwise against ``k``.
+            Non-negative redshift. Broadcast elementwise against ``k``.
+            The nonlinear emulator prediction is trained through ``z = 5``.
 
         Returns
         -------
@@ -334,7 +375,8 @@ class CosmoPower[B: Background](KRangeExtrapolation):
         k : ArrayLike
             Wavenumber in 1/Mpc, positive.
         z : ArrayLike
-            Redshift in ``[0, 5]``. Broadcast elementwise against ``k``.
+            Non-negative redshift. Broadcast elementwise against ``k``.
+            Above ``z = 5``, use the ODE continuation described on the class.
 
         Returns
         -------
@@ -359,7 +401,7 @@ class CosmoPower[B: Background](KRangeExtrapolation):
         Parameters
         ----------
         z : ArrayLike
-            Redshift in ``[0, 5]``.
+            Non-negative redshift, with ODE continuation above ``z = 5``.
         k : ArrayLike, optional
             Wavenumber in 1/Mpc. ``None`` uses ``k_growth``.
 
@@ -385,7 +427,7 @@ class CosmoPower[B: Background](KRangeExtrapolation):
         Parameters
         ----------
         z : ArrayLike
-            Redshift in ``[0, 5]``.
+            Non-negative redshift, with ODE continuation above ``z = 5``.
         k : ArrayLike, optional
             Wavenumber in 1/Mpc. ``None`` uses ``k_growth``.
 
@@ -399,10 +441,10 @@ class CosmoPower[B: Background](KRangeExtrapolation):
         k = self._growth_k(k)
         # Each output depends on exactly one element of z, so a JVP with unit
         # tangents is the elementwise derivative.
-        _, dlnp_dz = jax.jvp(
+        log_pk, dlnp_dz = jax.jvp(
             lambda z_: self._log_power(k, z_, False), (z,), (jnp.ones_like(z),)
         )
-        return -0.5 * (1 + z) * dlnp_dz
+        return jnp.where(jnp.isnan(log_pk), jnp.nan, -0.5 * (1 + z) * dlnp_dz)
 
     def primordial_power_spectrum(
         self,

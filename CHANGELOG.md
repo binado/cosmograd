@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- CosmoPower continues linear power and growth above redshift 5 using the
+  background's linear-growth ODE, anchored to the emulator at redshift 5.
+  Nonlinear power still uses the emulator prediction outside its training range.
+
 ## 0.3.1
 
 - Relaxed the `numpy` requirement from `>=2.5.4` to `>2.0`. The package
